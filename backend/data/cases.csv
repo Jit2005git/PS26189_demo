@@ -1,0 +1,51 @@
+case_id,case_title,case_type,date_opened,description,status
+CASE-001,Fictional Investigation 001,financial fraud,2025-06-12,Synthetic case report regarding identity theft detected in fictional scenario 1.,OPEN
+CASE-002,Fictional Investigation 002,vehicle-related fraud,2023-03-09,Synthetic case report regarding financial fraud detected in fictional scenario 2.,OPEN
+CASE-003,Fictional Investigation 003,online scam,2024-05-02,Synthetic case report regarding financial fraud detected in fictional scenario 3.,OPEN
+CASE-004,Fictional Investigation 004,vehicle-related fraud,2026-03-22,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 4.,CLOSED
+CASE-005,Fictional Investigation 005,vehicle-related fraud,2026-05-23,Synthetic case report regarding financial fraud detected in fictional scenario 5.,UNDER INVESTIGATION
+CASE-006,Fictional Investigation 006,vehicle-related fraud,2026-02-14,Synthetic case report regarding cyber fraud detected in fictional scenario 6.,UNDER INVESTIGATION
+CASE-007,Fictional Investigation 007,vehicle-related fraud,2025-08-30,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 7.,UNDER INVESTIGATION
+CASE-008,Fictional Investigation 008,financial fraud,2024-08-03,Synthetic case report regarding organized theft detected in fictional scenario 8.,CLOSED
+CASE-009,Fictional Investigation 009,vehicle-related fraud,2025-07-11,Synthetic case report regarding online scam detected in fictional scenario 9.,OPEN
+CASE-010,Fictional Investigation 010,online scam,2023-03-17,Synthetic case report regarding online scam detected in fictional scenario 10.,UNDER INVESTIGATION
+CASE-011,Fictional Investigation 011,online scam,2023-04-08,Synthetic case report regarding organized theft detected in fictional scenario 11.,UNDER INVESTIGATION
+CASE-012,Fictional Investigation 012,organized theft,2023-05-05,Synthetic case report regarding financial fraud detected in fictional scenario 12.,UNDER INVESTIGATION
+CASE-013,Fictional Investigation 013,financial fraud,2026-04-16,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 13.,UNDER INVESTIGATION
+CASE-014,Fictional Investigation 014,online scam,2024-08-17,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 14.,UNDER INVESTIGATION
+CASE-015,Fictional Investigation 015,vehicle-related fraud,2026-05-12,Synthetic case report regarding organized theft detected in fictional scenario 15.,CLOSED
+CASE-016,Fictional Investigation 016,online scam,2026-03-04,Synthetic case report regarding organized theft detected in fictional scenario 16.,UNDER INVESTIGATION
+CASE-017,Fictional Investigation 017,financial fraud,2026-01-04,Synthetic case report regarding identity theft detected in fictional scenario 17.,OPEN
+CASE-018,Fictional Investigation 018,online scam,2026-01-14,Synthetic case report regarding organized theft detected in fictional scenario 18.,OPEN
+CASE-019,Fictional Investigation 019,organized theft,2024-12-10,Synthetic case report regarding identity theft detected in fictional scenario 19.,CLOSED
+CASE-020,Fictional Investigation 020,financial fraud,2025-04-24,Synthetic case report regarding cyber fraud detected in fictional scenario 20.,UNDER INVESTIGATION
+CASE-021,Fictional Investigation 021,online scam,2023-05-02,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 21.,OPEN
+CASE-022,Fictional Investigation 022,online scam,2024-10-23,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 22.,OPEN
+CASE-023,Fictional Investigation 023,financial fraud,2024-04-07,Synthetic case report regarding cyber fraud detected in fictional scenario 23.,OPEN
+CASE-024,Fictional Investigation 024,organized theft,2024-01-02,Synthetic case report regarding identity theft detected in fictional scenario 24.,CLOSED
+CASE-025,Fictional Investigation 025,identity theft,2024-10-06,Synthetic case report regarding financial fraud detected in fictional scenario 25.,OPEN
+CASE-026,Fictional Investigation 026,identity theft,2023-11-09,Synthetic case report regarding identity theft detected in fictional scenario 26.,UNDER INVESTIGATION
+CASE-027,Fictional Investigation 027,vehicle-related fraud,2025-01-11,Synthetic case report regarding online scam detected in fictional scenario 27.,OPEN
+CASE-028,Fictional Investigation 028,cyber fraud,2023-07-04,Synthetic case report regarding financial fraud detected in fictional scenario 28.,UNDER INVESTIGATION
+CASE-029,Fictional Investigation 029,online scam,2023-11-18,Synthetic case report regarding financial fraud detected in fictional scenario 29.,UNDER INVESTIGATION
+CASE-030,Fictional Investigation 030,cyber fraud,2025-07-07,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 30.,UNDER INVESTIGATION
+CASE-031,Fictional Investigation 031,cyber fraud,2023-06-23,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 31.,OPEN
+CASE-032,Fictional Investigation 032,financial fraud,2023-11-16,Synthetic case report regarding online scam detected in fictional scenario 32.,CLOSED
+CASE-033,Fictional Investigation 033,cyber fraud,2025-09-09,Synthetic case report regarding cyber fraud detected in fictional scenario 33.,OPEN
+CASE-034,Fictional Investigation 034,vehicle-related fraud,2024-01-05,Synthetic case report regarding cyber fraud detected in fictional scenario 34.,UNDER INVESTIGATION
+CASE-035,Fictional Investigation 035,financial fraud,2023-04-06,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 35.,OPEN
+CASE-036,Fictional Investigation 036,vehicle-related fraud,2023-11-28,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 36.,OPEN
+CASE-037,Fictional Investigation 037,online scam,2024-09-05,Synthetic case report regarding organized theft detected in fictional scenario 37.,CLOSED
+CASE-038,Fictional Investigation 038,online scam,2023-05-05,Synthetic case report regarding financial fraud detected in fictional scenario 38.,CLOSED
+CASE-039,Fictional Investigation 039,cyber fraud,2025-04-15,Synthetic case report regarding identity theft detected in fictional scenario 39.,OPEN
+CASE-040,Fictional Investigation 040,organized theft,2025-02-05,Synthetic case report regarding online scam detected in fictional scenario 40.,OPEN
+CASE-041,Fictional Investigation 041,organized theft,2024-08-21,Synthetic case report regarding cyber fraud detected in fictional scenario 41.,UNDER INVESTIGATION
+CASE-042,Fictional Investigation 042,identity theft,2026-03-18,Synthetic case report regarding identity theft detected in fictional scenario 42.,CLOSED
+CASE-043,Fictional Investigation 043,vehicle-related fraud,2024-10-10,Synthetic case report regarding online scam detected in fictional scenario 43.,OPEN
+CASE-044,Fictional Investigation 044,financial fraud,2024-01-31,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 44.,CLOSED
+CASE-045,Fictional Investigation 045,financial fraud,2024-06-25,Synthetic case report regarding online scam detected in fictional scenario 45.,OPEN
+CASE-046,Fictional Investigation 046,cyber fraud,2025-12-28,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 46.,CLOSED
+CASE-047,Fictional Investigation 047,cyber fraud,2024-11-23,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 47.,CLOSED
+CASE-048,Fictional Investigation 048,online scam,2025-04-25,Synthetic case report regarding vehicle-related fraud detected in fictional scenario 48.,OPEN
+CASE-049,Fictional Investigation 049,financial fraud,2023-03-27,Synthetic case report regarding cyber fraud detected in fictional scenario 49.,UNDER INVESTIGATION
+CASE-050,Fictional Investigation 050,financial fraud,2023-08-11,Synthetic case report regarding organized theft detected in fictional scenario 50.,CLOSED

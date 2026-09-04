@@ -1,0 +1,21 @@
+organization_id,organization_name,organization_type,location_id
+ORG-001,Fictional Enterprise 1,CORPORATE,LOCATION-016
+ORG-002,Fictional Enterprise 2,NGO,LOCATION-024
+ORG-003,Fictional Enterprise 3,NGO,LOCATION-015
+ORG-004,Fictional Enterprise 4,SHELL_COMPANY,LOCATION-003
+ORG-005,Fictional Enterprise 5,NGO,LOCATION-015
+ORG-006,Fictional Enterprise 6,NGO,LOCATION-014
+ORG-007,Fictional Enterprise 7,CORPORATE,LOCATION-002
+ORG-008,Fictional Enterprise 8,NGO,LOCATION-007
+ORG-009,Fictional Enterprise 9,NGO,LOCATION-018
+ORG-010,Fictional Enterprise 10,CORPORATE,LOCATION-013
+ORG-011,Fictional Enterprise 11,NGO,LOCATION-009
+ORG-012,Fictional Enterprise 12,CORPORATE,LOCATION-026
+ORG-013,Fictional Enterprise 13,SHELL_COMPANY,LOCATION-001
+ORG-014,Fictional Enterprise 14,CORPORATE,LOCATION-028
+ORG-015,Fictional Enterprise 15,SHELL_COMPANY,LOCATION-001
+ORG-016,Fictional Enterprise 16,NGO,LOCATION-003
+ORG-017,Fictional Enterprise 17,NGO,LOCATION-015
+ORG-018,Fictional Enterprise 18,NGO,LOCATION-008
+ORG-019,Fictional Enterprise 19,SHELL_COMPANY,LOCATION-006
+ORG-020,Fictional Enterprise 20,SHELL_COMPANY,LOCATION-016

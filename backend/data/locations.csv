@@ -1,0 +1,31 @@
+location_id,location_name,location_type,city,state
+LOCATION-001,"Fictional Sector 56, Kolkata",COMMERCIAL,Kolkata,West Bengal
+LOCATION-002,"Fictional Sector 25, Hyderabad",RESIDENTIAL,Hyderabad,Telangana
+LOCATION-003,"Fictional Sector 92, Chennai",RESIDENTIAL,Chennai,Tamil Nadu
+LOCATION-004,"Fictional Sector 78, Delhi",COMMERCIAL,Delhi,Delhi
+LOCATION-005,"Fictional Sector 52, Surat",RESIDENTIAL,Surat,Gujarat
+LOCATION-006,"Fictional Sector 15, Kolkata",COMMERCIAL,Kolkata,West Bengal
+LOCATION-007,"Fictional Sector 90, Mumbai",RESIDENTIAL,Mumbai,Maharashtra
+LOCATION-008,"Fictional Sector 31, Chennai",COMMERCIAL,Chennai,Tamil Nadu
+LOCATION-009,"Fictional Sector 97, Delhi",COMMERCIAL,Delhi,Delhi
+LOCATION-010,"Fictional Sector 59, Pune",COMMERCIAL,Pune,Maharashtra
+LOCATION-011,"Fictional Sector 25, Bengaluru",RESIDENTIAL,Bengaluru,Karnataka
+LOCATION-012,"Fictional Sector 29, Surat",RESIDENTIAL,Surat,Gujarat
+LOCATION-013,"Fictional Sector 50, Pune",COMMERCIAL,Pune,Maharashtra
+LOCATION-014,"Fictional Sector 18, Chennai",RESIDENTIAL,Chennai,Tamil Nadu
+LOCATION-015,"Fictional Sector 30, Delhi",COMMERCIAL,Delhi,Delhi
+LOCATION-016,"Fictional Sector 8, Jaipur",RESIDENTIAL,Jaipur,Rajasthan
+LOCATION-017,"Fictional Sector 24, Surat",RESIDENTIAL,Surat,Gujarat
+LOCATION-018,"Fictional Sector 63, Chennai",COMMERCIAL,Chennai,Tamil Nadu
+LOCATION-019,"Fictional Sector 40, Pune",RESIDENTIAL,Pune,Maharashtra
+LOCATION-020,"Fictional Sector 97, Jaipur",COMMERCIAL,Jaipur,Rajasthan
+LOCATION-021,"Fictional Sector 91, Ahmedabad",RESIDENTIAL,Ahmedabad,Gujarat
+LOCATION-022,"Fictional Sector 89, Delhi",COMMERCIAL,Delhi,Delhi
+LOCATION-023,"Fictional Sector 59, Delhi",COMMERCIAL,Delhi,Delhi
+LOCATION-024,"Fictional Sector 80, Chennai",COMMERCIAL,Chennai,Tamil Nadu
+LOCATION-025,"Fictional Sector 49, Pune",COMMERCIAL,Pune,Maharashtra
+LOCATION-026,"Fictional Sector 71, Pune",COMMERCIAL,Pune,Maharashtra
+LOCATION-027,"Fictional Sector 14, Bengaluru",COMMERCIAL,Bengaluru,Karnataka
+LOCATION-028,"Fictional Sector 54, Surat",COMMERCIAL,Surat,Gujarat
+LOCATION-029,"Fictional Sector 91, Jaipur",RESIDENTIAL,Jaipur,Rajasthan
+LOCATION-030,"Fictional Sector 6, Hyderabad",COMMERCIAL,Hyderabad,Telangana
