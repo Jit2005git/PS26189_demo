@@ -1,26 +1,51 @@
-import React from 'react'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AppLayout from './components/layout/AppLayout';
+import DashboardPage from './pages/DashboardPage';
+import NetworkPage from './pages/NetworkPage';
+import PlaceholderPage from './components/common/PlaceholderPage';
 
-function App() {
+export default function App() {
   return (
-    <div className="dashboard">
-      <header className="header">
-        <h1>PS 26189</h1>
-        <h2>AI-Powered Criminal Network Analysis System</h2>
-      </header>
-
-      <main className="content">
-        <div className="warning-panel">
-          <h3 className="synthetic-data">SYNTHETIC DEMONSTRATION DATA</h3>
-          <p className="analytical-lead">Analytical lead only. Requires human verification.</p>
-        </div>
-
-        <div className="placeholder-content">
-          <p>Intelligence features will be implemented in later steps.</p>
-        </div>
-      </main>
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          
+          <Route path="cases" element={
+            <PlaceholderPage 
+              title="Cases" 
+              description="Manage and investigate assigned intelligence cases." 
+            />
+          } />
+          
+          {/* Step 15B: Interactive network visualization */}
+          <Route path="network" element={<NetworkPage />} />
+          
+          <Route path="entities" element={
+            <PlaceholderPage 
+              title="Entities" 
+              description="Explore all known individuals, organizations, and assets." 
+            />
+          } />
+          
+          <Route path="analytics" element={
+            <PlaceholderPage 
+              title="Analytics" 
+              description="Deep topological insights and pattern detection." 
+            />
+          } />
+          
+          <Route path="priority" element={
+            <PlaceholderPage 
+              title="Investigation Priority" 
+              description="Detailed list of all prioritized analytical leads." 
+            />
+          } />
+          
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
 }
-
-export default App
