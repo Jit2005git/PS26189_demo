@@ -26,8 +26,8 @@ def test_summary(client):
     assert "total_entities" in data
     assert "total_relationships" in data
     
-    # Regression test: total_cases must match inventory (50)
-    assert data["total_cases"] == 50
+    # Regression test: total_cases must match inventory (250)
+    assert data["total_cases"] == 250
     # Graph semantics should be preserved (graph nodes are just those with relationships)
     # The total nodes in graph = total_entities + (cases with relationships)
 
@@ -37,8 +37,8 @@ def test_cases_list(client):
     cases = response.json()
     assert isinstance(cases, list)
     assert len(cases) > 0
-    # Regression test: must return all 50 cases
-    assert len(cases) == 50
+    # Regression test: must return all 250 cases
+    assert len(cases) == 250
     # verify safety terminology is implicitly handled by not injecting guilt
     for c in cases:
         assert c["type"] in ("CASE", "CASE_ID")
@@ -93,6 +93,41 @@ def test_related_cases(client):
     data = response.json()
     assert "related_cases" in data
     assert isinstance(data["related_cases"], list)
+    assert "related_cases_details" in data
+    assert isinstance(data["related_cases_details"], list)
+
+def test_case_details_step17_enrichment(client):
+    response = client.get("/api/cases/CASE-001")
+    assert response.status_code == 200
+    data = response.json()
+    assert "associated_persons" in data
+    assert isinstance(data["associated_persons"], list)
+    assert len(data["associated_persons"]) > 0
+    person = data["associated_persons"][0]
+    assert "person_id" in person
+    assert "full_name" in person
+    assert "role" in person
+    assert "linked_cases_count" in person
+
+    assert "related_entities" in data
+    entities = data["related_entities"]
+    assert "locations" in entities
+    assert "phones" in entities
+    assert "bank_accounts" in entities
+    assert "vehicles" in entities
+    assert "organizations" in entities
+
+    assert "relationships" in data
+    assert isinstance(data["relationships"], list)
+    if len(data["relationships"]) > 0:
+        rel = data["relationships"][0]
+        assert "confidence" in rel
+        assert "evidence" in rel
+        assert "detection_method" in rel
+
+    assert "related_cases" in data
+    assert isinstance(data["related_cases"], list)
+
 
 def test_entities_list(client):
     response = client.get("/api/entities")
@@ -116,6 +151,43 @@ def test_entity_details(client):
 def test_unknown_entity(client):
     response = client.get("/api/entities/UNKNOWN-123456")
     assert response.status_code == 404
+
+def test_person_investigation_profile_step18(client):
+    # 1. Test rich person dossier
+    response = client.get("/api/entities/PERSON-001")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["entity_id"] == "PERSON-001"
+    assert data["entity_type"] == "PERSON"
+    assert "demographics" in data
+    assert data["demographics"]["full_name"] == "Arjun Mehta"
+    assert "aliases" in data
+    assert "contact" in data
+    assert "associated_cases" in data
+    assert len(data["associated_cases"]) > 0
+    assert "assets" in data
+    assert "phones" in data["assets"]
+    assert "family_relationships" in data
+    assert len(data["family_relationships"]) > 0
+    assert "safety_disclaimer" in data["family_relationships"][0]
+    assert "network_summary" in data
+    assert "evidence_relationships" in data
+    assert "graph_metrics" in data
+    assert "priority_information" in data
+
+    # 2. Test persons summary registry endpoint
+    persons_resp = client.get("/api/persons")
+    assert persons_resp.status_code == 200
+    persons = persons_resp.json()
+    assert len(persons) == 200
+    assert persons[0]["type"] == "PERSON"
+
+    # 3. Test global search for person
+    search_resp = client.get("/api/search?q=Arjun")
+    assert search_resp.status_code == 200
+    search_results = search_resp.json()["results"]
+    assert any(r["id"] == "PERSON-001" for r in search_results)
+
 
 def test_entity_relationships(client):
     res = client.get("/api/entities?limit=1")
@@ -164,7 +236,7 @@ def test_priority_filtering(client):
         assert p["entity_type"] == "PERSON"
         
 def test_search(client):
-    response = client.get("/api/search?q=PERSON-017")
+    response = client.get("/api/search?q=Arjun Mehta")
     assert response.status_code == 200
     data = response.json()
     assert "results" in data

@@ -107,7 +107,7 @@ def build_dataset_graph():
     # Process structured metadata directly (avoiding fabricated text)
     if gt:
         for row in gt:
-            if row.get("relationship_type") == "INVOLVED_IN" and row.get("evidence_reference") == "cases.csv":
+            if row.get("relationship_type") == "INVOLVED_IN" and row.get("evidence_reference") in ("cases.csv", "case_persons.csv"):
                 source = row.get("source_entity_id")
                 target = row.get("target_entity_id")
                 
@@ -116,11 +116,12 @@ def build_dataset_graph():
                 add_entity(G, {"type": get_type_from_id(target), "value": target, "evidence": target, "source": "STRUCTURED_METADATA"})
                 
                 # Create direct structured relationship
+                ev_ref = row.get("evidence_reference", "case_persons.csv")
                 rel = {
                     "source": source,
                     "target": target,
                     "relationship_type": "INVOLVED_IN",
-                    "evidence": "Structured metadata association from cases.csv",
+                    "evidence": f"Structured metadata association from {ev_ref}",
                     "case_id": target if target.startswith("CASE") else source if source.startswith("CASE") else "",
                     "detection_method": "STRUCTURED_METADATA"
                 }
