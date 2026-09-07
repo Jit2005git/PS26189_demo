@@ -128,6 +128,9 @@ def _get_search_index() -> Dict[str, Any]:
         date_opened = c.get("date_opened", "")
         year = date_opened[:4] if len(date_opened) >= 4 else ""
         loc_obj = locations_by_id.get(c.get("location_id"), {})
+        loc_name = loc_obj.get("location_name", "")
+        loc_city = loc_obj.get("city", "")
+        loc_locality = loc_obj.get("locality", "")
         
         indexed_cases.append({
             "case_id": cid,
@@ -142,7 +145,9 @@ def _get_search_index() -> Dict[str, Any]:
             "district": c.get("district", ""),
             "state": c.get("state", ""),
             "description": c.get("description", ""),
-            "location_name": loc_obj.get("location_name", ""),
+            "location_name": loc_name,
+            "city": loc_city,
+            "locality": loc_locality,
             "associated_person_ids": persons_by_case.get(cid, []),
             "associated_persons_count": len(persons_by_case.get(cid, []))
         })
@@ -540,8 +545,18 @@ def advanced_search(request: Dict[str, Any]) -> Dict[str, Any]:
 
             # 9. Location filter
             if location_q:
-                if location_q in c["district"].lower() or location_q in c["location_name"].lower():
-                    reasons.append(f"Matched location: {c['district']}")
+                matched_loc_val = None
+                if location_q in c["district"].lower():
+                    matched_loc_val = c["district"]
+                elif location_q in c["city"].lower():
+                    matched_loc_val = c["city"]
+                elif location_q in c["locality"].lower():
+                    matched_loc_val = c["locality"]
+                elif location_q in c["location_name"].lower():
+                    matched_loc_val = c["location_name"]
+
+                if matched_loc_val:
+                    reasons.append(f"Matched location: {matched_loc_val}")
                 else:
                     continue
 

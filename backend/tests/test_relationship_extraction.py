@@ -142,21 +142,17 @@ def test_llm_unavailable_behavior():
 
 def test_dataset_integration():
     # Verify behavior on actual synthetic dataset communications
+    from modules.extraction.entity_extractor import extract_entities
+    
     comms = load_csv("communications.csv")
     if not comms:
         return
-    
+        
     sample_text = comms[0]["description"]
-    # We know standard comms text is "PERSON-XXX contacted PERSON-YYY using PHONE-ZZZ regarding CASE-XYZ."
-    # We will fake the extracted entities to match what extraction would output.
-    parts = sample_text.split()
-    person_a = parts[0] # PERSON-XXX
-    person_b = parts[2] # PERSON-YYY
+    entities = extract_entities(sample_text)
+    person_entities = [e for e in entities if e["type"] == "PERSON"]
+    assert len(person_entities) >= 2, "Expected at least 2 PERSON entities in human-readable description"
     
-    entities = [
-        {"type": "PERSON", "value": person_a, "evidence": person_a},
-        {"type": "PERSON", "value": person_b, "evidence": person_b}
-    ]
     rels = extract_relationships(sample_text, entities)
     # Should identify CONTACTED
     assert len(rels) >= 1

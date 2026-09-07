@@ -25,10 +25,14 @@ def test_duplicate_representations():
     has_variants = any("-V" in pid for pid in phone_ids)
     assert has_variants, "No duplicate phone representations found for ER testing"
 
-    persons = load_csv("persons.csv")
-    person_ids = [p["person_id"] for p in persons]
-    has_person_variants = any("-V" in pid for pid in person_ids)
-    assert has_person_variants, "No duplicate person representations found for ER testing"
+    aliases = load_csv("aliases.csv")
+    assert aliases and len(aliases) > 0, "No aliases found for person ER testing"
+    assert all("person_id" in a and "alias_name" in a for a in aliases)
+
+    vehicles = load_csv("vehicles.csv")
+    assert any("-V" in v["vehicle_id"] for v in vehicles), "No vehicle variants found for ER testing"
+    bank_accounts = load_csv("bank_accounts.csv")
+    assert any("-V" in b["bank_account_id"] for b in bank_accounts), "No bank account variants found for ER testing"
 
 def test_ground_truth_references():
     gt = load_csv("ground_truth.csv")

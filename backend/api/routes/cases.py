@@ -4,6 +4,14 @@ import networkx as nx
 from api.dependencies import get_graph, get_cases
 from api.models import Case, GraphResponse, Node, Edge
 from modules.graph.graph_builder import get_case_subgraph
+from modules.cases.case_service import (
+    get_all_cases_enriched,
+    get_case_record,
+    get_case_associated_persons,
+    get_case_related_entities,
+    get_case_evidence_relationships,
+    get_case_related_cases_details
+)
 
 router = APIRouter()
 
@@ -12,32 +20,12 @@ def list_cases(
     G: nx.MultiDiGraph = Depends(get_graph),
     inventory: List = Depends(get_cases)
 ):
-    # Return all cases from the inventory
-    cases = []
-    
-    # We map what's in the graph to include graph details, 
-    # but still return cases not in the graph.
-    graph_cases = {}
-    for n, d in G.nodes(data=True):
-        if d.get("type") in ("CASE", "CASE_ID"):
-            graph_cases[n] = d
-            
-    for row in inventory:
-        case_id = row.get("case_id")
-        if not case_id:
-            continue
-            
-        details = graph_cases.get(case_id, {
-            "type": "CASE", 
-            "value": case_id,
-            "title": row.get("title", ""),
-            "status": row.get("status", ""),
-            "description": row.get("description", "")
-        })
-        cases.append(Case(id=case_id, type=details.get("type", "CASE"), details=details))
-        
-    # Sort for determinism
-    cases.sort(key=lambda x: x.id)
+    # Retrieve enriched cases with complete synthetic metadata
+    enriched = get_all_cases_enriched(G=G)
+    cases = [
+        Case(id=c["case_id"], type=c.get("type", "CASE"), details=c)
+        for c in enriched
+    ]
     return cases
 
 @router.get("/cases/{case_id}")
@@ -46,36 +34,62 @@ def get_case_details(
     G: nx.MultiDiGraph = Depends(get_graph),
     inventory: List = Depends(get_cases)
 ):
-    # Find case in inventory first
-    case_row = next((r for r in inventory if r.get("case_id") == case_id), None)
-    
+    case_row = get_case_record(case_id)
     if not case_row:
         raise HTTPException(status_code=404, detail="Case not found")
         
+    title = case_row.get("case_title") or case_row.get("title") or f"Case {case_id}"
     case_data = {
+        "case_id": case_id,
         "type": "CASE",
         "value": case_id,
-        "title": case_row.get("title", ""),
-        "status": case_row.get("status", ""),
-        "description": case_row.get("description", "")
+        "title": title,
+        "case_title": title,
+        "offence_category": case_row.get("offence_category", "General Enquiry"),
+        "legal_section": case_row.get("legal_section", "Not Specified"),
+        "fir_number": case_row.get("fir_number", "N/A"),
+        "date_opened": case_row.get("date_opened", ""),
+        "status": case_row.get("status", "OPEN"),
+        "police_station": case_row.get("police_station", ""),
+        "district": case_row.get("district", ""),
+        "state": case_row.get("state", ""),
+        "description": case_row.get("description", ""),
+        "location_id": case_row.get("location_id", "")
     }
     
     # Check if case is in graph to supplement details and get connected entities
     connected_entities = []
     if case_id in G and G.nodes[case_id].get("type") in ("CASE", "CASE_ID"):
         case_data.update(G.nodes[case_id])
+        # Preserve original fields
+        case_data["case_id"] = case_id
+        case_data["title"] = title
         
-        # Get direct connected entities
+        # Direct connected entities in NetworkX graph
         for neighbor in G.neighbors(case_id):
             connected_entities.append({"id": neighbor, "details": G.nodes[neighbor]})
         for pred in G.predecessors(case_id):
             if pred not in [c["id"] for c in connected_entities]:
                 connected_entities.append({"id": pred, "details": G.nodes[pred]})
+
+    # Investigator-oriented analytical sections
+    associated_persons = get_case_associated_persons(case_id)
+    related_entities = get_case_related_entities(case_id)
+    relationships = get_case_evidence_relationships(case_id, G=G)
+    related_cases = get_case_related_cases_details(case_id, G=G)
+
+    case_data["associated_persons_count"] = len(associated_persons)
+    case_data["related_entities_count"] = related_entities.get("total_count", 0)
+    case_data["evidence_count"] = len(relationships)
                 
     return {
         "case_id": case_id,
         "details": case_data,
-        "connected_entities": connected_entities
+        "connected_entities": connected_entities,
+        "associated_persons": associated_persons,
+        "related_entities": related_entities,
+        "relationships": relationships,
+        "related_cases": related_cases
     }
 
 @router.get("/cases/{case_id}/graph", response_model=GraphResponse)
@@ -84,13 +98,12 @@ def get_case_graph(
     G: nx.MultiDiGraph = Depends(get_graph),
     inventory: List = Depends(get_cases)
 ):
-    case_row = next((r for r in inventory if r.get("case_id") == case_id), None)
+    case_row = get_case_record(case_id)
     if not case_row:
         raise HTTPException(status_code=404, detail="Case not found")
         
-    # If case exists in inventory but has no graph relationships, return empty graph
+    # If case exists in inventory but has no graph relationships, return solitary node
     if case_id not in G or G.nodes[case_id].get("type") not in ("CASE", "CASE_ID"):
-        # We can add the case itself as a solitary node
         return GraphResponse(
             nodes=[Node(id=case_id, label=case_id, type="CASE")],
             edges=[]
@@ -129,23 +142,27 @@ def get_related_cases(
     G: nx.MultiDiGraph = Depends(get_graph),
     inventory: List = Depends(get_cases)
 ):
-    case_row = next((r for r in inventory if r.get("case_id") == case_id), None)
+    case_row = get_case_record(case_id)
     if not case_row:
         raise HTTPException(status_code=404, detail="Case not found")
         
-    related_cases = set()
+    related_cases_details = get_case_related_cases_details(case_id, G=G)
+    related_ids = [r["case_id"] for r in related_cases_details]
     
-    # If case is in the graph, we can find related cases via shared entities
+    # Also include any direct graph neighbors
     if case_id in G and G.nodes[case_id].get("type") in ("CASE", "CASE_ID"):
         incident_entities = set(G.predecessors(case_id)) | set(G.successors(case_id))
-        
         for ent in incident_entities:
             if G.nodes[ent].get("type") in ("CASE", "CASE_ID"):
                 continue
-            # Find cases connected to this entity
             ent_neighbors = set(G.predecessors(ent)) | set(G.successors(ent))
             for en in ent_neighbors:
                 if G.nodes[en].get("type") in ("CASE", "CASE_ID") and en != case_id:
-                    related_cases.add(en)
-                    
-    return {"related_cases": sorted(list(related_cases))}
+                    if en not in related_ids:
+                        related_ids.append(en)
+                     
+    return {
+        "related_cases": sorted(list(set(related_ids))),
+        "related_cases_details": related_cases_details
+    }
+

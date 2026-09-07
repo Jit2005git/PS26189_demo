@@ -17,6 +17,7 @@
  * - Neutral terminology throughout: "Potential Relationship", "Analytical Lead"
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Network, Search, AlertTriangle, Loader2 } from 'lucide-react';
 import api from '../api/client';
 import GraphViewer from '../components/network/GraphViewer';
@@ -58,13 +59,16 @@ function buildCytoscapeElements(graphData) {
 }
 
 export default function NetworkPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paramCaseId = searchParams.get('caseId') || searchParams.get('case');
+
   // Case inventory state
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState(null);
 
   // Selected case and its graph
-  const [selectedCaseId, setSelectedCaseId] = useState('');
+  const [selectedCaseId, setSelectedCaseId] = useState(paramCaseId || '');
   const [graphData, setGraphData] = useState(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [graphError, setGraphError] = useState(null);
@@ -86,8 +90,11 @@ export default function NetworkPage() {
         const res = await api.get('/api/cases');
         setCases(res.data);
         setCasesError(null);
-        // Auto-select first case
-        if (res.data.length > 0) {
+        
+        // Auto-select requested case or first available
+        if (paramCaseId && res.data.some((c) => c.id === paramCaseId)) {
+          setSelectedCaseId(paramCaseId);
+        } else if (!selectedCaseId && res.data.length > 0) {
           setSelectedCaseId(res.data[0].id);
         }
       } catch (err) {
@@ -97,7 +104,14 @@ export default function NetworkPage() {
       }
     };
     load();
-  }, []);
+  }, [paramCaseId]);
+
+  // Sync with search parameter changes
+  useEffect(() => {
+    if (paramCaseId && cases.some((c) => c.id === paramCaseId)) {
+      setSelectedCaseId(paramCaseId);
+    }
+  }, [paramCaseId, cases]);
 
   // ── Load graph for selected case ─────────────────────────────────────────
   useEffect(() => {
@@ -206,16 +220,22 @@ export default function NetworkPage() {
                   id="case-selector"
                   value={selectedCaseId}
                   onChange={(e) => {
-                    setSelectedCaseId(e.target.value);
+                    const newId = e.target.value;
+                    setSelectedCaseId(newId);
+                    setSearchParams({ caseId: newId });
                     setSearchQuery('');
                   }}
-                  className="w-52 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-56 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 truncate"
                 >
-                  {cases.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.id}
-                    </option>
-                  ))}
+                  {cases.map((c) => {
+                    const title = c.details?.title || c.details?.case_title;
+                    const truncatedTitle = title && title.length > 28 ? `${title.slice(0, 28)}…` : title;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.id}{truncatedTitle ? ` — ${truncatedTitle}` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </div>

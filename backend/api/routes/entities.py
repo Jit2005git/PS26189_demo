@@ -1,10 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import networkx as nx
 from api.dependencies import get_graph, get_analytics, get_priority
 from api.models import Entity, Edge
+from modules.entities.person_service import (
+    get_person_profile, 
+    get_person_family_profile, 
+    list_persons_summary
+)
 
 router = APIRouter()
+
+@router.get("/persons", response_model=List[Dict[str, Any]])
+def get_persons(
+    search: Optional[str] = None,
+    district: Optional[str] = None,
+    limit: Optional[int] = Query(250, ge=1)
+):
+    """Returns synthetic person registry with search and district filtering for Step 18."""
+    return list_persons_summary(search=search, district=district, limit=limit)
 
 @router.get("/entities", response_model=List[Entity])
 def list_entities(
@@ -40,6 +54,12 @@ def get_entity_details(
     analytics: dict = Depends(get_analytics),
     priority: list = Depends(get_priority)
 ):
+    # Check if entity is a person first (Step 18 Person Dossier)
+    person_profile = get_person_profile(entity_id, G=G, analytics=analytics, priority=priority)
+    if person_profile:
+        return person_profile
+
+    # Fallback to general graph entity
     if entity_id not in G or G.nodes[entity_id].get("type") in ("CASE", "CASE_ID"):
         raise HTTPException(status_code=404, detail="Entity not found")
         
@@ -76,6 +96,20 @@ def get_entity_details(
         "graph_metrics": entity_analytics,
         "priority_information": entity_priority
     }
+
+@router.get("/entities/{entity_id}/family")
+def get_entity_family(entity_id: str):
+    """
+    Step 19: Dedicated Investigator Family Profile Endpoint.
+    
+    CRITICAL INVESTIGATIVE SAFETY RULE:
+    Family relationship data is strictly civilian relationship data.
+    It does NOT imply case involvement, criminality, guilt, or investigative association.
+    """
+    family_profile = get_person_family_profile(entity_id)
+    if not family_profile:
+        raise HTTPException(status_code=404, detail="Person not found or entity is not a person")
+    return family_profile
 
 @router.get("/entities/{entity_id}/relationships", response_model=List[Edge])
 def get_entity_relationships(

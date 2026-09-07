@@ -139,12 +139,13 @@ def test_graph_statistics():
 def test_dataset_integration_path():
     G = build_dataset_graph()
     
-    # Must find path connecting the elements
-    assert G.has_edge("PERSON-017", "CASE-001") or G.has_edge("CASE-001", "PERSON-017")
-    assert G.has_edge("PERSON-017", "PHONE-004") or G.has_edge("PHONE-004", "PERSON-017")
-    assert G.has_edge("PERSON-043", "PHONE-004") or G.has_edge("PHONE-004", "PERSON-043")
-    assert G.has_edge("PERSON-043", "CASE-014") or G.has_edge("CASE-014", "PERSON-043")
+    # Must find structured association connecting persons to cases from case_persons.csv
+    assert G.has_edge("PERSON-001", "CASE-001") or G.has_edge("CASE-001", "PERSON-001")
+    edge_data = G.get_edge_data("PERSON-001", "CASE-001")
+    assert edge_data is not None
+    # Verify structured metadata association provenance
+    assert any("case_persons.csv" in str(d.get("evidence", "")) for d in edge_data.values())
     
-    # Verify no hallucinated edges by checking related_cases purely from data
+    # Verify related cases discovered via shared entities purely from data
     related = find_related_cases(G, "CASE-001")
-    assert "CASE-014" in related
+    assert "CASE-002" in related

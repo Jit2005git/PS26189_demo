@@ -1,6 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import DashboardPage from './pages/DashboardPage';
+import CasesPage from './pages/CasesPage';
+import EntitiesPage from './pages/EntitiesPage';
+import PersonProfilePage from './pages/PersonProfilePage';
+import FamilyExplorerPage from './pages/FamilyExplorerPage';
+import AdvancedSearchPage from './pages/AdvancedSearchPage';
+import AssistantPage from './pages/AssistantPage';
 import NetworkPage from './pages/NetworkPage';
 import PlaceholderPage from './components/common/PlaceholderPage';
 
@@ -12,22 +18,25 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           
-          <Route path="cases" element={
-            <PlaceholderPage 
-              title="Cases" 
-              description="Manage and investigate assigned intelligence cases." 
-            />
-          } />
+          {/* Step 21B: AI Investigation Assistant */}
+          <Route path="assistant" element={<AssistantPage />} />
+          
+          {/* Step 20: Advanced Search & Investigation Filtering */}
+          <Route path="search" element={<AdvancedSearchPage />} />
+          
+          {/* Step 17: Case Explorer & Case Analysis */}
+          <Route path="cases" element={<CasesPage />} />
+          <Route path="cases/:caseId" element={<CasesPage />} />
           
           {/* Step 15B: Interactive network visualization */}
           <Route path="network" element={<NetworkPage />} />
           
-          <Route path="entities" element={
-            <PlaceholderPage 
-              title="Entities" 
-              description="Explore all known individuals, organizations, and assets." 
-            />
-          } />
+          {/* Step 18: Person Investigation Profile & Entity Directory */}
+          <Route path="entities" element={<EntitiesPage />} />
+          <Route path="entities/:entityId" element={<PersonProfilePage />} />
+          
+          {/* Step 19: Family & Relationship Explorer */}
+          <Route path="entities/:entityId/family" element={<FamilyExplorerPage />} />
           
           <Route path="analytics" element={
             <PlaceholderPage 

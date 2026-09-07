@@ -1,8 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderOpen, Network, Users, BarChart3, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, Network, Users, BarChart3, AlertTriangle, Search, Bot } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'AI Assistant', path: '/assistant', icon: Bot },
+  { name: 'Advanced Search', path: '/search', icon: Search },
   { name: 'Cases', path: '/cases', icon: FolderOpen },
   { name: 'Network', path: '/network', icon: Network },
   { name: 'Entities', path: '/entities', icon: Users },
