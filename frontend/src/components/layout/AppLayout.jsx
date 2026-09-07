@@ -5,25 +5,26 @@ import SafetyBanner from './SafetyBanner';
 
 export default function AppLayout() {
   const location = useLocation();
-  // Network page needs its own internal scroll / full-height canvas
+  // Network page needs its own internal full-height canvas without outer page scroll
   const isNetwork = location.pathname.startsWith('/network');
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-100">
       <SafetyBanner />
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         {isNetwork ? (
-          // Network page: no scroll wrapper, fills available height
-          <main className="flex-1 overflow-hidden relative flex flex-col">
+          <main className="flex-1 overflow-hidden relative flex flex-col bg-slate-950">
             <Outlet />
           </main>
         ) : (
-          <main className="flex-1 overflow-y-auto relative">
-            <Outlet />
-            <footer className="mt-8 border-t border-slate-200 py-6 text-center text-xs text-slate-500 bg-slate-50">
-              Decision-support system. Human verification required.
+          <main className="flex-1 overflow-y-auto relative bg-slate-950 flex flex-col justify-between">
+            <div>
+              <Outlet />
+            </div>
+            <footer className="mt-12 border-t border-slate-800/80 py-4 px-6 text-center text-[11px] text-slate-400 bg-slate-950/80">
+              Investigation Network Analysis & Evidence Intelligence Platform • AI Decision Support System • All analytical leads require human verification.
             </footer>
           </main>
         )}

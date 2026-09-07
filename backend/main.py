@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -46,9 +47,18 @@ app = FastAPI(
 )
 
 # CORS Configuration
+# Retain local development origins and allow external production frontend configuration via environment variables
 origins = [
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
 ]
+
+env_origins = os.getenv("ALLOWED_ORIGINS") or os.getenv("FRONTEND_URL")
+if env_origins:
+    for origin in env_origins.split(","):
+        cleaned = origin.strip()
+        if cleaned and cleaned not in origins:
+            origins.append(cleaned)
 
 app.add_middleware(
     CORSMiddleware,

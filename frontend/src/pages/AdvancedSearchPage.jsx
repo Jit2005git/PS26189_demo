@@ -3,7 +3,7 @@ import {
   Search, Users, FolderOpen, Filter, RotateCcw, ArrowRight, 
   ExternalLink, Network, HeartHandshake, ShieldAlert, Phone, 
   MapPin, Briefcase, Calendar, FileText, CheckCircle2, ChevronDown, 
-  Layers, AlertCircle, Info, Sparkles
+  Layers, AlertCircle, Info, Sparkles, Loader2
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
@@ -71,7 +71,6 @@ export default function AdvancedSearchPage() {
     if (initialQuery) {
       executeSearch({ query: initialQuery, mode: searchParams.get('mode')?.toUpperCase() || 'ALL' });
     } else {
-      // Execute broad initial search
       executeSearch({ mode });
     }
   }, []);
@@ -135,6 +134,7 @@ export default function AdvancedSearchPage() {
     setOrganization('');
     setMinCaseCount('');
     setMaxCaseCount('');
+    setSearchParams({});
     executeSearch({
       query: '',
       mode
@@ -146,62 +146,58 @@ export default function AdvancedSearchPage() {
   const totalResults = results?.total_results || 0;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 animate-fadeIn">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 select-none animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
         <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <span>Investigation Dossiers</span>
-            <span>/</span>
-            <span className="text-slate-800 font-semibold">Advanced Investigation Search</span>
+          <div className="flex items-center gap-2.5 mb-1">
+            <Search className="text-emerald-400" size={22} />
+            <h1 className="text-xl font-bold text-slate-100 tracking-wide">
+              Advanced Investigation Search
+            </h1>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5 mt-0.5">
-            <Search className="text-indigo-600" size={24} />
-            <span>Advanced Search & Investigation Filtering</span>
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Deterministic, multi-criteria retrieval across registered persons, case files, telecom identifiers, and locations.
+          <p className="text-xs text-slate-400">
+            Multi-criteria search across persons, cases, identifiers, telecom suffixes, and organizations.
           </p>
         </div>
 
         {/* Safety Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold self-start">
-          <ShieldAlert size={14} className="text-amber-600 shrink-0" />
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-950/40 border border-amber-600/30 text-amber-300 text-xs font-semibold self-start sm:self-auto">
+          <ShieldAlert size={14} className="text-amber-400 shrink-0" />
           <span>Analytical Leads Only • Human Verification Required</span>
         </div>
       </div>
 
       {/* Safety Notice Card */}
-      <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 text-amber-950 text-xs flex items-start gap-3">
-        <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
+      <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-600/20 text-amber-200 text-xs flex items-start gap-3">
+        <Info size={18} className="text-amber-400 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
-          <div className="font-bold text-amber-900 uppercase text-[11px] tracking-wider">
-            Investigative Neutrality & Safety Separation Notice
+          <div className="font-bold text-amber-300 uppercase text-[11px] tracking-wider">
+            Investigative Neutrality Notice
           </div>
-          <p className="text-amber-900/90 leading-relaxed">
-            Search results display formal records from synthetic demonstration files (<code className="font-mono text-[10px] bg-amber-100 px-1 py-0.5 rounded">persons.csv</code>, <code className="font-mono text-[10px] bg-amber-100 px-1 py-0.5 rounded">cases.csv</code>, <code className="font-mono text-[10px] bg-amber-100 px-1 py-0.5 rounded">case_persons.csv</code>). 
-            Civilian family relationships are strictly isolated and never used as evidence or filtering criteria. Terms like "criminal" or "guilty" are strictly prohibited.
+          <p className="text-amber-200/80 leading-relaxed text-[11px]">
+            Search results display verified records from synthetic demonstration files. Civilian family ties are isolated and not used as evidence or filtering criteria.
           </p>
         </div>
       </div>
 
       {/* Search Query & Filters Box */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-5">
+      <form onSubmit={handleSubmit} className="bg-slate-900 rounded-xl border border-slate-800 shadow-sm space-y-4 p-5">
         {/* Top Controls: Mode Tabs + Primary Query */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           {/* Search Mode Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-lg self-start">
+          <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 self-start">
             <button
               type="button"
               onClick={() => { setMode('ALL'); executeSearch({ mode: 'ALL' }); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
                 mode === 'ALL'
-                  ? 'bg-white text-indigo-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Layers size={13} />
-              <span>Unified Search (All)</span>
+              <span>Unified Search</span>
             </button>
 
             <button
@@ -209,12 +205,12 @@ export default function AdvancedSearchPage() {
               onClick={() => { setMode('PERSON'); executeSearch({ mode: 'PERSON' }); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
                 mode === 'PERSON'
-                  ? 'bg-white text-indigo-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Users size={13} />
-              <span>Person Intelligence</span>
+              <span>People</span>
             </button>
 
             <button
@@ -222,12 +218,12 @@ export default function AdvancedSearchPage() {
               onClick={() => { setMode('CASE'); executeSearch({ mode: 'CASE' }); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
                 mode === 'CASE'
-                  ? 'bg-white text-indigo-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <FolderOpen size={13} />
-              <span>Case Files</span>
+              <span>Cases</span>
             </button>
           </div>
 
@@ -235,195 +231,117 @@ export default function AdvancedSearchPage() {
           <button
             type="button"
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 self-end md:self-auto"
+            className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-bold self-start md:self-auto"
           >
             <Filter size={13} />
-            <span>{showAdvancedFilters ? 'Hide Specific Filters' : 'Show Specific Filters'}</span>
+            <span>{showAdvancedFilters ? 'Hide Granular Filters' : 'Show Granular Filters'}</span>
+            <ChevronDown size={13} className={`transform transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
           </button>
         </div>
 
-        {/* General Query Input */}
+        {/* Global Query Bar */}
         <div className="relative">
-          <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search keywords, names, aliases, IDs, locations, offence categories..."
+            placeholder="Universal query (matches person names, aliases, IDs, case titles, locations, vehicle tags)…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-medium"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-950 border border-slate-700/80 rounded-lg text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
-        {/* Structured Filter Grid */}
+        {/* Granular Filters Grid */}
         {showAdvancedFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pt-2">
-            {/* Person-Specific Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3 border-t border-slate-800">
+            {/* PERSON / UNIFIED FILTERS */}
             {(mode === 'ALL' || mode === 'PERSON') && (
               <>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Full / Partial Name
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                    Person Name
                   </label>
                   <input
                     type="text"
                     placeholder="e.g. Arjun Mehta"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Alias
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                    Known Alias
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Bhai, Dada"
+                    placeholder="e.g. Rocky"
                     value={alias}
                     onChange={(e) => setAlias(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Person ID
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                    Phone Suffix (Last 4 digits)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. PERSON-001"
-                    value={personId}
-                    onChange={(e) => setPersonId(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Phone Prefix (Starts with)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 7454, 9801"
-                    value={phonePrefix}
-                    onChange={(e) => setPhonePrefix(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Phone Suffix (Ends with)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 4895, 0004"
+                    maxLength={4}
+                    placeholder="e.g. 7890"
                     value={phoneSuffix}
                     onChange={(e) => setPhoneSuffix(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Min Associated Cases
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                    District
                   </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 3"
-                    value={minCaseCount}
-                    onChange={(e) => setMinCaseCount(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Max Associated Cases
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 1"
-                    value={maxCaseCount}
-                    onChange={(e) => setMaxCaseCount(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Vehicle Reg / Model
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. MH01, Sedan"
-                    value={vehicle}
-                    onChange={(e) => setVehicle(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  />
+                  <select
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">All Districts</option>
+                    {metadata.districts.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
                 </div>
               </>
             )}
 
-            {/* Case & Shared Filters */}
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                Offence Category
-              </label>
-              <select
-                value={offence}
-                onChange={(e) => setOffence(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-              >
-                <option value="">All Offence Categories</option>
-                {metadata.offence_categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                Jurisdiction District
-              </label>
-              <select
-                value={district}
-                onChange={(e) => setDistrict(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-              >
-                <option value="">All Districts</option>
-                {metadata.districts.map((dist) => (
-                  <option key={dist} value={dist}>{dist}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                City / Locality / Location
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Kolkata, Raipur"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-              />
-            </div>
-
+            {/* CASE / UNIFIED FILTERS */}
             {(mode === 'ALL' || mode === 'CASE') && (
               <>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                    Offence Category
+                  </label>
+                  <select
+                    value={offence}
+                    onChange={(e) => setOffence(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">All Offences</option>
+                    {metadata.offence_categories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
                     Case Status
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-1.5 text-xs bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="">All Statuses</option>
                     {metadata.statuses.map((st) => (
@@ -433,23 +351,7 @@ export default function AdvancedSearchPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
-                    Year Opened
-                  </label>
-                  <select
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                  >
-                    <option value="">All Years</option>
-                    {metadata.years.map((yr) => (
-                      <option key={yr} value={yr}>{yr}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
                     Case ID
                   </label>
                   <input
@@ -457,12 +359,12 @@ export default function AdvancedSearchPage() {
                     placeholder="e.g. CASE-001"
                     value={caseId}
                     onChange={(e) => setCaseId(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1 uppercase tracking-wider">
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
                     FIR Number
                   </label>
                   <input
@@ -470,7 +372,7 @@ export default function AdvancedSearchPage() {
                     placeholder="e.g. FIR-SYNTH-RAI-0001"
                     value={firNumber}
                     onChange={(e) => setFirNumber(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-950 border border-slate-700/80 rounded-md text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </>
@@ -479,11 +381,11 @@ export default function AdvancedSearchPage() {
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-between pt-3 border-t border-slate-800">
           <button
             type="button"
             onClick={handleReset}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
           >
             <RotateCcw size={13} />
             <span>Reset All Filters</span>
@@ -492,10 +394,10 @@ export default function AdvancedSearchPage() {
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition-all disabled:opacity-50 cursor-pointer"
           >
             <Search size={14} />
-            <span>{loading ? 'Executing Query...' : 'Apply Filters & Search'}</span>
+            <span>{loading ? 'Searching…' : 'Apply Filters & Search'}</span>
           </button>
         </div>
       </form>
@@ -505,41 +407,41 @@ export default function AdvancedSearchPage() {
         {/* Results Header with Counts */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-black text-slate-900">
+            <h2 className="text-base font-bold text-slate-100">
               Search Results
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">
               {totalResults} Matched Records
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
-            <span>Persons: <strong className="text-slate-800">{persons.length}</strong></span>
+          <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+            <span>Persons: <strong className="text-slate-200 font-mono">{persons.length}</strong></span>
             <span>•</span>
-            <span>Cases: <strong className="text-slate-800">{cases.length}</strong></span>
+            <span>Cases: <strong className="text-slate-200 font-mono">{cases.length}</strong></span>
           </div>
         </div>
 
         {error && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs flex items-center gap-2">
-            <AlertCircle size={16} className="text-rose-600 shrink-0" />
+          <div className="p-4 bg-red-950/60 border border-red-800/80 rounded-xl text-red-300 text-xs flex items-center gap-2">
+            <AlertCircle size={16} className="text-red-400 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Zero Results State */}
         {!loading && totalResults === 0 && (
-          <div className="p-12 text-center bg-white rounded-xl border border-slate-200 shadow-xs space-y-3">
-            <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <Search size={24} />
+          <div className="p-12 text-center bg-slate-900 rounded-xl border border-slate-800 shadow-xs space-y-3">
+            <div className="w-12 h-12 rounded-full bg-slate-950 text-slate-500 flex items-center justify-center mx-auto border border-slate-800">
+              <Search size={20} />
             </div>
-            <h3 className="font-bold text-sm text-slate-800">No matching investigation records found</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              No persons or case files matched your specified filter criteria. Try broadening your location, removing phone digit constraints, or resetting the filters.
+            <h3 className="font-bold text-sm text-slate-200">No matching investigation records found</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              No persons or case files matched your specified filter criteria. Try broadening your terms or clearing filters.
             </p>
             <button
               onClick={handleReset}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-indigo-300 bg-indigo-950 border border-indigo-800 hover:bg-indigo-900 transition-colors"
             >
               <RotateCcw size={13} />
               <span>Reset Filters</span>
@@ -550,9 +452,9 @@ export default function AdvancedSearchPage() {
         {/* 1. MATCHED PERSONS SECTION */}
         {persons.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-              <Users size={16} className="text-indigo-600" />
-              <h3 className="font-bold text-sm text-slate-800">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <Users size={16} className="text-sky-400" />
+              <h3 className="font-bold text-sm text-slate-200">
                 Persons Matching Criteria ({persons.length})
               </h3>
             </div>
@@ -561,21 +463,21 @@ export default function AdvancedSearchPage() {
               {persons.map((p) => (
                 <div
                   key={p.person_id}
-                  className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3 group"
+                  className="p-4 bg-slate-900 rounded-xl border border-slate-800 shadow-xs hover:border-slate-700 transition-all flex flex-col justify-between space-y-3 group"
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <h4 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">
+                        <h4 className="font-bold text-slate-100 text-sm group-hover:text-sky-400 transition-colors">
                           {p.full_name}
                         </h4>
                         <div className="text-[11px] font-mono text-slate-400">{p.person_id}</div>
                       </div>
 
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                         p.associated_case_count > 1
-                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          ? 'bg-amber-950 text-amber-300 border-amber-800'
+                          : 'bg-slate-800 text-slate-300 border-slate-700'
                       }`}>
                         <FileText size={11} />
                         <span>{p.associated_case_count} Cases</span>
@@ -583,36 +485,36 @@ export default function AdvancedSearchPage() {
                     </div>
 
                     {p.aliases && p.aliases.length > 0 && (
-                      <div className="text-[11px] text-indigo-700 font-medium bg-indigo-50/70 px-2 py-0.5 rounded border border-indigo-100/80">
+                      <div className="text-[11px] text-slate-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                         Alias: {p.aliases.join(', ')}
                       </div>
                     )}
 
-                    <div className="space-y-1 text-xs text-slate-600 pt-1">
+                    <div className="space-y-1 text-xs text-slate-400 pt-1">
                       <div className="flex items-center gap-1.5">
-                        <Phone size={12} className="text-slate-400" />
-                        <span className="font-mono">{p.phone_number}</span>
+                        <Phone size={12} className="text-slate-500" />
+                        <span className="font-mono text-slate-300">{p.phone_number}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <MapPin size={12} className="text-slate-400" />
+                        <MapPin size={12} className="text-slate-500" />
                         <span>{p.district || p.city || 'District Area'}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Briefcase size={12} className="text-slate-400" />
+                        <Briefcase size={12} className="text-slate-500" />
                         <span>{p.occupation}</span>
                       </div>
                     </div>
 
                     {/* Deterministic Matching Reasons */}
-                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                    <div className="pt-2 border-t border-slate-800/80 space-y-1">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Matched Reasons
+                        Matching Reason
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {p.matching_reasons.map((reason, idx) => (
+                        {(p.matching_reasons || []).map((reason, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800"
                           >
                             <CheckCircle2 size={10} />
                             <span>{reason}</span>
@@ -623,10 +525,10 @@ export default function AdvancedSearchPage() {
                   </div>
 
                   {/* Navigation Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
                     <button
                       onClick={() => navigate(`/entities/${p.person_id}/family`)}
-                      className="text-[11px] font-semibold text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                      className="text-[11px] font-semibold text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
                     >
                       <HeartHandshake size={12} />
                       <span>Civilian Family</span>
@@ -634,7 +536,7 @@ export default function AdvancedSearchPage() {
 
                     <button
                       onClick={() => navigate(`/entities/${p.person_id}`)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold text-sky-300 bg-sky-950 border border-sky-800 hover:bg-sky-900 transition-colors"
                     >
                       <span>View Dossier</span>
                       <ArrowRight size={12} />
@@ -649,9 +551,9 @@ export default function AdvancedSearchPage() {
         {/* 2. MATCHED CASES SECTION */}
         {cases.length > 0 && (
           <div className="space-y-3 pt-4">
-            <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-              <FolderOpen size={16} className="text-indigo-600" />
-              <h3 className="font-bold text-sm text-slate-800">
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+              <FolderOpen size={16} className="text-indigo-400" />
+              <h3 className="font-bold text-sm text-slate-200">
                 Case Files Matching Criteria ({cases.length})
               </h3>
             </div>
@@ -660,56 +562,56 @@ export default function AdvancedSearchPage() {
               {cases.map((c) => (
                 <div
                   key={c.case_id}
-                  className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between space-y-3 group"
+                  className="p-4 bg-slate-900 rounded-xl border border-slate-800 shadow-xs hover:border-slate-700 transition-all flex flex-col justify-between space-y-3 group"
                 >
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="font-mono text-xs font-bold text-indigo-700">{c.case_id}</span>
-                        <h4 className="font-bold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors line-clamp-1 mt-0.5">
+                        <span className="font-mono text-xs font-bold text-indigo-400">{c.case_id}</span>
+                        <h4 className="font-bold text-slate-100 text-sm group-hover:text-indigo-300 transition-colors line-clamp-1 mt-0.5">
                           {c.title}
                         </h4>
                       </div>
 
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
                         c.status === 'OPEN'
-                          ? 'bg-amber-100 text-amber-900 border border-amber-200'
-                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
                       }`}>
                         {c.status}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-xs">
-                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-800 font-bold border border-blue-200 text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 font-bold border border-indigo-800 text-[10px]">
                         {c.offence_category}
                       </span>
-                      <span className="text-slate-500 font-medium text-[11px]">
+                      <span className="text-slate-400 font-medium text-[11px]">
                         {c.legal_section}
                       </span>
                     </div>
 
-                    <div className="space-y-1 text-xs text-slate-600 pt-1">
+                    <div className="space-y-1 text-xs text-slate-400 pt-1">
                       <div className="flex items-center gap-1.5">
-                        <Calendar size={12} className="text-slate-400" />
+                        <Calendar size={12} className="text-slate-500" />
                         <span>Opened: {c.date_opened}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <MapPin size={12} className="text-slate-400" />
+                        <MapPin size={12} className="text-slate-500" />
                         <span>{c.police_station} • {c.district}</span>
                       </div>
                     </div>
 
                     {/* Matched Reasons */}
-                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                    <div className="pt-2 border-t border-slate-800/80 space-y-1">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Matched Reasons
+                        Matching Reason
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {c.matching_reasons.map((reason, idx) => (
+                        {(c.matching_reasons || []).map((reason, idx) => (
                           <span
                             key={idx}
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800"
                           >
                             <CheckCircle2 size={10} />
                             <span>{reason}</span>
@@ -720,10 +622,10 @@ export default function AdvancedSearchPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
                     <button
                       onClick={() => navigate(`/network?caseId=${c.case_id}`)}
-                      className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
+                      className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
                     >
                       <Network size={12} />
                       <span>Network Graph</span>
@@ -731,7 +633,7 @@ export default function AdvancedSearchPage() {
 
                     <button
                       onClick={() => navigate(`/cases/${c.case_id}`)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors"
                     >
                       <span>Case Details</span>
                       <ArrowRight size={12} />

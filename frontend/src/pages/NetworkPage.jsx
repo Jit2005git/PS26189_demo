@@ -1,31 +1,34 @@
 /**
- * NetworkPage — interactive investigation network visualization.
+ * NetworkPage — 3-Panel Interactive Network Investigation Workspace.
  *
- * DATA FLOW:
- *   FastAPI → GET /api/cases → case selector
- *   FastAPI → GET /api/cases/{case_id}/graph → Cytoscape.js elements
+ * LAYOUT:
+ * ┌──────────────┬──────────────────────────────┬──────────────────┐
+ * │ Controls     │                              │ Selected Entity  │
+ * │              │                              │                  │
+ * │ Case         │        NETWORK GRAPH         │ Name             │
+ * │ Search       │                              │ Type             │
+ * │ Filters      │                              │ Details          │
+ * │ Layout       │                              │ Evidence         │
+ * │ Zoom         │                              │ Actions          │
+ * └──────────────┴──────────────────────────────┴──────────────────┘
  *
  * DATA INTEGRITY:
- * - All nodes and edges come exclusively from the backend API
- * - No nodes, edges, relationships, or demo paths are hardcoded here
- * - Confidence, priority, analytics are NOT calculated in React
- * - Safety messaging is always visible
- *
- * SAFETY:
- * - "SYNTHETIC DEMONSTRATION DATA" banner (in AppLayout SafetyBanner)
- * - "Analytical lead only. Requires human verification." in entity details
- * - Neutral terminology throughout: "Potential Relationship", "Analytical Lead"
+ * - All nodes and edges come directly from GET /api/cases/{case_id}/graph
+ * - No edges, relationships, confidence, or priority are calculated in the frontend
+ * - Strictly non-accusatory terminology throughout
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Network, Search, AlertTriangle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { 
+  Network, Search, AlertTriangle, Loader2, Filter, 
+  Layers, FolderOpen, RefreshCw, ChevronDown, Check, X
+} from 'lucide-react';
 import api from '../api/client';
 import GraphViewer from '../components/network/GraphViewer';
 import EntityDetails from '../components/network/EntityDetails';
 import GraphLegend from '../components/network/GraphLegend';
 import GraphControls from '../components/network/GraphControls';
 
-// Convert API response (nodes/edges arrays) to Cytoscape elements format
 function buildCytoscapeElements(graphData) {
   if (!graphData) return [];
   const elements = [];
@@ -60,37 +63,40 @@ function buildCytoscapeElements(graphData) {
 
 export default function NetworkPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const paramCaseId = searchParams.get('caseId') || searchParams.get('case');
 
-  // Case inventory state
+  // Case registry
   const [cases, setCases] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState(null);
 
-  // Selected case and its graph
+  // Active Case & Graph data
   const [selectedCaseId, setSelectedCaseId] = useState(paramCaseId || '');
   const [graphData, setGraphData] = useState(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [graphError, setGraphError] = useState(null);
 
-  // Selected graph element
+  // Selected element (node or edge)
   const [selected, setSelected] = useState(null);
 
-  // Local search filter
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState('ALL');
+  const [selectedRelFilter, setSelectedRelFilter] = useState('ALL');
 
-  // Ref to the Cytoscape core instance (set by GraphViewer)
+  // Cytoscape ref
   const cyRef = useRef(null);
 
-  // ── Load case inventory ──────────────────────────────────────────────────
+  // Load cases on mount
   useEffect(() => {
-    const load = async () => {
+    const loadCases = async () => {
       try {
         setCasesLoading(true);
         const res = await api.get('/api/cases');
         setCases(res.data);
         setCasesError(null);
-        
+
         // Auto-select requested case or first available
         if (paramCaseId && res.data.some((c) => c.id === paramCaseId)) {
           setSelectedCaseId(paramCaseId);
@@ -98,26 +104,26 @@ export default function NetworkPage() {
           setSelectedCaseId(res.data[0].id);
         }
       } catch (err) {
-        setCasesError('Unable to load cases from API.');
+        setCasesError('Unable to load case records from API.');
       } finally {
         setCasesLoading(false);
       }
     };
-    load();
+    loadCases();
   }, [paramCaseId]);
 
-  // Sync with search parameter changes
+  // Sync paramCaseId
   useEffect(() => {
     if (paramCaseId && cases.some((c) => c.id === paramCaseId)) {
       setSelectedCaseId(paramCaseId);
     }
   }, [paramCaseId, cases]);
 
-  // ── Load graph for selected case ─────────────────────────────────────────
+  // Load graph for selected case
   useEffect(() => {
     if (!selectedCaseId) return;
 
-    const load = async () => {
+    const loadGraph = async () => {
       try {
         setGraphLoading(true);
         setGraphError(null);
@@ -125,223 +131,346 @@ export default function NetworkPage() {
         const res = await api.get(`/api/cases/${selectedCaseId}/graph`);
         setGraphData(res.data);
       } catch (err) {
-        setGraphError('Unable to load graph from API. Please ensure the backend is running.');
+        setGraphError('Unable to load graph for case record.');
         setGraphData(null);
       } finally {
         setGraphLoading(false);
       }
     };
-    load();
+    loadGraph();
   }, [selectedCaseId]);
 
-  // ── Compute Cytoscape elements (filtered by local search) ────────────────
-  const allElements = buildCytoscapeElements(graphData);
+  // Derive unique entity types & relationship types present in this case graph
+  const { availableTypes, availableRelTypes } = useMemo(() => {
+    const types = new Set();
+    const rels = new Set();
 
-  const filteredElements = searchQuery.trim()
-    ? (() => {
-        const q = searchQuery.toLowerCase();
-        // Find matching node IDs
-        const matchingNodeIds = new Set(
-          allElements
-            .filter(
-              (el) =>
-                !el.data.source && // is a node
-                (el.data.id?.toLowerCase().includes(q) ||
-                  el.data.label?.toLowerCase().includes(q) ||
-                  el.data.type?.toLowerCase().includes(q))
-            )
-            .map((el) => el.data.id)
-        );
-        // Include matched nodes + edges connecting them
-        return allElements.filter(
-          (el) =>
-            (!el.data.source && matchingNodeIds.has(el.data.id)) ||
-            (el.data.source &&
-              matchingNodeIds.has(el.data.source) &&
-              matchingNodeIds.has(el.data.target))
-        );
-      })()
-    : allElements;
+    (graphData?.nodes || []).forEach((n) => {
+      if (n.type) types.add(n.type);
+    });
+    (graphData?.edges || []).forEach((e) => {
+      if (e.relationship_type) rels.add(e.relationship_type);
+    });
 
-  const hasRelationships = graphData && (graphData.edges?.length ?? 0) > 0;
-  const isEmptyCase = graphData && !hasRelationships;
+    return {
+      availableTypes: Array.from(types).sort(),
+      availableRelTypes: Array.from(rels).sort(),
+    };
+  }, [graphData]);
 
+  // Filter Cytoscape elements
+  const allElements = useMemo(() => buildCytoscapeElements(graphData), [graphData]);
+
+  const filteredElements = useMemo(() => {
+    let nodes = allElements.filter((el) => !el.data.source);
+    let edges = allElements.filter((el) => el.data.source);
+
+    // Filter by entity type
+    if (selectedTypeFilter !== 'ALL') {
+      nodes = nodes.filter((n) => n.data.type === selectedTypeFilter);
+    }
+
+    // Filter by relationship type
+    if (selectedRelFilter !== 'ALL') {
+      edges = edges.filter((e) => e.data.relationship_type === selectedRelFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      nodes = nodes.filter(
+        (n) =>
+          n.data.id?.toLowerCase().includes(q) ||
+          n.data.label?.toLowerCase().includes(q) ||
+          n.data.type?.toLowerCase().includes(q)
+      );
+    }
+
+    // Retain only edges whose source and target are still in nodes
+    const validNodeIds = new Set(nodes.map((n) => n.data.id));
+    edges = edges.filter(
+      (e) => validNodeIds.has(e.data.source) && validNodeIds.has(e.data.target)
+    );
+
+    return [...nodes, ...edges];
+  }, [allElements, selectedTypeFilter, selectedRelFilter, searchQuery]);
+
+  // Layout reset handler
   const handleResetLayout = useCallback(() => {
-    const cy = cyRef.current;
-    if (!cy) return;
-    cy.layout({
-      name: 'cose',
-      animate: false,
-      randomize: true,
-      componentSpacing: 80,
-      nodeRepulsion: () => 8000,
-      nodeOverlap: 20,
-      idealEdgeLength: () => 100,
-      edgeElasticity: () => 100,
-      nestingFactor: 5,
-      gravity: 80,
-      numIter: 1000,
-    }).run();
+    if (cyRef.current && cyRef.runLayout) {
+      cyRef.runLayout();
+    }
   }, []);
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // Center on node by ID
+  const handleCenterNode = useCallback((nodeId) => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    const targetNode = cy.$(`node#${nodeId}`);
+    if (targetNode.length > 0) {
+      cy.fit(targetNode, 80);
+      cy.elements().removeClass('dimmed highlighted');
+      cy.$(':selected').unselect();
+      targetNode.select();
+      targetNode.neighborhood().addClass('highlighted');
+      cy.elements().not(targetNode).not(targetNode.neighborhood()).addClass('dimmed');
+    }
+  }, []);
+
+  // Handle double-click navigation
+  const handleNodeNavigate = useCallback((nodeData) => {
+    if (!nodeData) return;
+    if (nodeData.type === 'PERSON') {
+      navigate(`/entities/${nodeData.id}`);
+    } else if (nodeData.type === 'CASE') {
+      navigate(`/cases/${nodeData.id}`);
+    }
+  }, [navigate]);
+
+  // Selected case metadata
+  const currentCase = cases.find((c) => c.id === selectedCaseId);
+  const currentCaseTitle = currentCase?.details?.title || currentCase?.details?.case_title || selectedCaseId;
+
   return (
-    <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
-      {/* Page header */}
-      <div className="px-6 pt-5 pb-4 bg-white border-b border-slate-200">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Network size={20} className="text-indigo-600" />
-              <h1 className="text-xl font-bold text-slate-900">Network Investigation</h1>
-            </div>
-            <p className="text-sm text-slate-500">
-              Interactive graph of validated entity relationships from the intelligence pipeline.
-            </p>
+    <div className="flex-1 flex overflow-hidden h-full bg-slate-950 text-slate-100 select-none">
+      {/* ── LEFT PANEL: CONTROLS & FILTERS (270px) ─────────────────────────── */}
+      <div className="w-72 bg-slate-900 border-r border-slate-800 flex flex-col h-full shrink-0 overflow-hidden">
+        {/* Left Panel Header */}
+        <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Network size={16} className="text-indigo-400" />
+            <span className="font-bold text-xs uppercase tracking-wider text-slate-200">Network Controls</span>
+          </div>
+          <span className="text-[11px] font-mono font-semibold text-slate-400">
+            {graphData?.nodes?.length || 0}N • {graphData?.edges?.length || 0}E
+          </span>
+        </div>
+
+        {/* Controls Scroll Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Case Selector */}
+          <div className="space-y-1.5">
+            <label htmlFor="case-select" className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <FolderOpen size={13} className="text-indigo-400" /> Case Record
+            </label>
+            {casesLoading ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-400">
+                <Loader2 size={13} className="animate-spin" /> Loading cases…
+              </div>
+            ) : casesError ? (
+              <div className="text-xs text-red-400 p-2 rounded-lg bg-red-950/40 border border-red-800/50">
+                {casesError}
+              </div>
+            ) : (
+              <select
+                id="case-select"
+                value={selectedCaseId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedCaseId(id);
+                  setSearchParams({ caseId: id });
+                  setSearchQuery('');
+                  setSelectedTypeFilter('ALL');
+                  setSelectedRelFilter('ALL');
+                }}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 truncate"
+              >
+                {cases.map((c) => {
+                  const title = c.details?.title || c.details?.case_title;
+                  const label = title ? `${c.id} — ${title.slice(0, 24)}…` : c.id;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+            {currentCase?.details?.offence_category && (
+              <div className="text-[11px] text-slate-400 font-medium px-1 flex items-center justify-between">
+                <span>{currentCase.details.offence_category}</span>
+                <span className="font-mono text-[10px] text-slate-400">{currentCase.details.status}</span>
+              </div>
+            )}
           </div>
 
-          {/* Case selector + search */}
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Case dropdown */}
-            <div className="flex flex-col">
-              <label htmlFor="case-selector" className="text-xs font-medium text-slate-500 mb-1">
-                Select Case
-              </label>
-              {casesLoading ? (
-                <div className="flex items-center gap-2 text-sm text-slate-400 px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 w-52">
-                  <Loader2 size={14} className="animate-spin" /> Loading cases…
-                </div>
-              ) : casesError ? (
-                <div className="flex items-center gap-2 text-sm text-red-600 px-3 py-2 border border-red-200 rounded-lg bg-red-50 w-52">
-                  <AlertTriangle size={14} /> {casesError}
-                </div>
-              ) : (
-                <select
-                  id="case-selector"
-                  value={selectedCaseId}
-                  onChange={(e) => {
-                    const newId = e.target.value;
-                    setSelectedCaseId(newId);
-                    setSearchParams({ caseId: newId });
-                    setSearchQuery('');
-                  }}
-                  className="w-56 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 truncate"
+          {/* Search Nodes */}
+          <div className="space-y-1.5">
+            <label htmlFor="node-search" className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Search size={13} className="text-indigo-400" /> Filter Nodes
+            </label>
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                id="node-search"
+                type="text"
+                placeholder="Search by name, ID, type…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-7 py-1.5 rounded-lg bg-slate-950 border border-slate-700/80 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-0.5"
                 >
-                  {cases.map((c) => {
-                    const title = c.details?.title || c.details?.case_title;
-                    const truncatedTitle = title && title.length > 28 ? `${title.slice(0, 28)}…` : title;
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {c.id}{truncatedTitle ? ` — ${truncatedTitle}` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
+                  <X size={12} />
+                </button>
               )}
             </div>
+          </div>
 
-            {/* Local graph search */}
-            <div className="flex flex-col">
-              <label htmlFor="graph-search" className="text-xs font-medium text-slate-500 mb-1">
-                Search Nodes
+          {/* Filter by Entity Type */}
+          <div className="space-y-1.5">
+            <label htmlFor="type-filter" className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Filter size={13} className="text-indigo-400" /> Entity Type
+            </label>
+            <select
+              id="type-filter"
+              value={selectedTypeFilter}
+              onChange={(e) => setSelectedTypeFilter(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="ALL">All Entity Types</option>
+              {availableTypes.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter by Relationship Type */}
+          {availableRelTypes.length > 0 && (
+            <div className="space-y-1.5">
+              <label htmlFor="rel-filter" className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Layers size={13} className="text-indigo-400" /> Relationship Type
               </label>
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                />
-                <input
-                  id="graph-search"
-                  type="text"
-                  placeholder="Filter graph nodes…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm w-44 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+              <select
+                id="rel-filter"
+                value={selectedRelFilter}
+                onChange={(e) => setSelectedRelFilter(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="ALL">All Relationship Types</option>
+                {availableRelTypes.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
             </div>
+          )}
+
+          {/* Viewport Actions */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Canvas Controls
+            </div>
+            <GraphControls cyRef={cyRef} onResetLayout={handleResetLayout} />
+          </div>
+
+          {/* Collapsible Entity Legend */}
+          <div className="pt-1">
+            <GraphLegend />
           </div>
         </div>
       </div>
 
-      {/* Main content: graph + sidebar */}
-      <div className="flex flex-1 overflow-hidden" style={{ minHeight: 0 }}>
-        {/* Graph area */}
-        <div className="flex-1 flex flex-col relative bg-slate-100 overflow-hidden" style={{ minHeight: 0 }}>
-          {/* Loading overlay */}
+      {/* ── CENTER PANEL: LARGE GRAPH CANVAS (flex-1) ─────────────────────── */}
+      <div className="flex-1 flex flex-col relative h-full overflow-hidden bg-slate-950">
+        {/* Canvas Top Bar */}
+        <div className="px-4 py-2 bg-slate-900/90 border-b border-slate-800/80 flex items-center justify-between text-xs z-10">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <span className="font-bold text-slate-200 truncate">
+              {selectedCaseId} {currentCaseTitle !== selectedCaseId ? `• ${currentCaseTitle}` : ''}
+            </span>
+            {(selectedTypeFilter !== 'ALL' || selectedRelFilter !== 'ALL' || searchQuery) && (
+              <span className="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] font-semibold">
+                Filters Active
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-slate-400 text-[11px] shrink-0 font-mono">
+            <span>Showing {filteredElements.filter(e => !e.data.source).length} nodes, {filteredElements.filter(e => e.data.source).length} edges</span>
+          </div>
+        </div>
+
+        {/* Canvas Area */}
+        <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
+          {/* Loading state */}
           {graphLoading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50 bg-opacity-90">
-              <Loader2 size={36} className="animate-spin text-indigo-500 mb-3" />
-              <p className="text-sm text-slate-600 font-medium">Loading investigation graph…</p>
-              <p className="text-xs text-slate-400 mt-1">Fetching from backend API</p>
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+              <Loader2 size={36} className="animate-spin text-indigo-400 mb-3" />
+              <p className="text-sm font-semibold text-slate-200">Loading Network Graph…</p>
+              <p className="text-xs text-slate-400 mt-1">Retrieving validated relational evidence for {selectedCaseId}</p>
             </div>
           )}
 
-          {/* API Error state */}
+          {/* Error state */}
           {graphError && !graphLoading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50 p-8">
-              <AlertTriangle size={40} className="text-red-400 mb-3" />
-              <p className="text-base font-semibold text-red-700 mb-1">API Connection Error</p>
-              <p className="text-sm text-slate-600 text-center max-w-sm">{graphError}</p>
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-8 bg-slate-950">
+              <AlertTriangle size={36} className="text-red-400 mb-3" />
+              <p className="text-base font-bold text-red-300 mb-1">Graph Data Unavailable</p>
+              <p className="text-xs text-slate-400 text-center max-w-sm">{graphError}</p>
             </div>
           )}
 
           {/* Empty case state */}
-          {isEmptyCase && !graphLoading && !graphError && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50 p-8">
-              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-                <Network size={28} className="text-slate-400" />
-              </div>
-              <p className="text-base font-semibold text-slate-700 mb-2">No Validated Relationships</p>
-              <p className="text-sm text-slate-500 text-center max-w-md">
-                No validated network relationships are available for this case.
-                The graph has been constructed from communication and transaction evidence; this case
-                currently has no extracted entity connections.
-              </p>
-              <p className="mt-4 text-xs text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded px-3 py-2">
-                Absence of relationships does not indicate absence of activity.
+          {!graphLoading && !graphError && allElements.length === 0 && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 bg-slate-950 text-center">
+              <Network size={40} className="text-slate-600 mb-3" />
+              <p className="text-base font-bold text-slate-300 mb-1">No Validated Connections Extracted</p>
+              <p className="text-xs text-slate-400 max-w-md">
+                No relationship edges were extracted or validated for case record {selectedCaseId}.
               </p>
             </div>
           )}
 
-          {/* Cytoscape graph canvas */}
+          {/* Filtered to zero */}
+          {!graphLoading && !graphError && allElements.length > 0 && filteredElements.length === 0 && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 bg-slate-950 text-center">
+              <Search size={32} className="text-slate-600 mb-2" />
+              <p className="text-sm font-semibold text-slate-300">No Elements Match Filter Criteria</p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedTypeFilter('ALL');
+                  setSelectedRelFilter('ALL');
+                }}
+                className="mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-600/40"
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+
+          {/* Cytoscape Graph Canvas */}
           {!graphLoading && !graphError && filteredElements.length > 0 && (
-            <div className="flex-1" style={{ minHeight: 0, height: '100%' }}>
-              <GraphViewer
-                elements={filteredElements}
-                cyRef={cyRef}
-                onNodeSelect={(sel) => setSelected(sel)}
-                onEdgeSelect={(sel) => setSelected(sel)}
-              />
-            </div>
+            <GraphViewer
+              elements={filteredElements}
+              cyRef={cyRef}
+              onNodeSelect={(sel) => setSelected(sel)}
+              onEdgeSelect={(sel) => setSelected(sel)}
+              onNodeNavigate={handleNodeNavigate}
+            />
           )}
-
-          {/* Search returned nothing */}
-          {!graphLoading && !graphError && !isEmptyCase && searchQuery && filteredElements.length === 0 && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
-              <Search size={32} className="text-slate-300 mb-3" />
-              <p className="text-sm text-slate-500">No nodes matched "{searchQuery}".</p>
-            </div>
-          )}
-        </div>
-
-        {/* Details sidebar */}
-        <div className="w-72 border-l border-slate-200 bg-white flex flex-col overflow-hidden">
-          <EntityDetails
-            selected={selected}
-            onClose={() => {
-              setSelected(null);
-              cyRef.current?.$(':selected').unselect();
-            }}
-          />
         </div>
       </div>
 
-      {/* Controls bar */}
-      <GraphControls cyRef={cyRef} onResetLayout={handleResetLayout} />
-
-      {/* Legend bar */}
-      <GraphLegend />
+      {/* ── RIGHT PANEL: SELECTED ENTITY DOSSIER / SUMMARY (320px) ─────────── */}
+      <div className="w-80 bg-slate-950 border-l border-slate-800 flex flex-col h-full shrink-0 overflow-hidden">
+        <EntityDetails
+          selected={selected}
+          graphData={graphData}
+          onClose={() => {
+            setSelected(null);
+            cyRef.current?.$(':selected').unselect();
+            cyRef.current?.elements().removeClass('dimmed highlighted');
+          }}
+          onCenterNode={handleCenterNode}
+        />
+      </div>
     </div>
   );
 }

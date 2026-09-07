@@ -3,14 +3,14 @@ import { FolderOpen, MapPin, Calendar, FileText, ChevronRight, ExternalLink } fr
 import { useNavigate } from 'react-router-dom';
 
 const OFFENCE_COLORS = {
-  'Cyber Crime': 'bg-purple-100 text-purple-800 border-purple-200',
-  'Extortion': 'bg-rose-100 text-rose-800 border-rose-200',
-  'Kidnapping': 'bg-amber-100 text-amber-800 border-amber-200',
-  'Financial Fraud': 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  'Narcotics': 'bg-red-100 text-red-800 border-red-200',
-  'Theft': 'bg-blue-100 text-blue-800 border-blue-200',
-  'Homicide': 'bg-stone-100 text-stone-800 border-stone-200',
-  'Smuggling': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  'Cyber Crime': 'bg-purple-950/80 text-purple-300 border-purple-500/40',
+  'Extortion': 'bg-rose-950/80 text-rose-300 border-rose-500/40',
+  'Kidnapping': 'bg-amber-950/80 text-amber-300 border-amber-500/40',
+  'Financial Fraud': 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40',
+  'Narcotics': 'bg-red-950/80 text-red-300 border-red-500/40',
+  'Theft': 'bg-blue-950/80 text-blue-300 border-blue-500/40',
+  'Homicide': 'bg-stone-900 text-stone-300 border-stone-600',
+  'Smuggling': 'bg-indigo-950/80 text-indigo-300 border-indigo-500/40',
 };
 
 export default function PersonCasesTable({ cases = [] }) {
@@ -20,97 +20,87 @@ export default function PersonCasesTable({ cases = [] }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FolderOpen size={18} className="text-indigo-600" />
-          <h2 className="text-base font-bold text-slate-900">Associated Case Records</h2>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+          <FolderOpen size={16} className="text-indigo-400" />
+          <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider">Associated Case Records</h2>
+          <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-800">
             {cases.length} {cases.length === 1 ? 'Case' : 'Cases'} Linked
           </span>
         </div>
-        <p className="text-xs text-slate-500 hidden sm:block">
-          Click any case record to inspect case dossier and evidence graph.
+        <p className="text-xs text-slate-400 hidden sm:block">
+          Select any case to open dossier and relational graph.
         </p>
       </div>
 
       {cases.length === 0 ? (
-        <div className="p-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200 text-xs">
+        <div className="p-12 text-center text-slate-400 bg-slate-950/80 rounded-xl border border-slate-800 text-xs">
           No cases directly associated with this person record.
         </div>
       ) : (
         <div className="space-y-3">
           {cases.map((c) => {
-            const offenceClass = OFFENCE_COLORS[c.offence_category] || 'bg-slate-100 text-slate-800 border-slate-200';
+            const offenceClass = OFFENCE_COLORS[c.offence_category] || 'bg-slate-800 text-slate-300 border-slate-700';
             const isClosed = (c.status || '').toUpperCase() === 'CLOSED';
 
             return (
               <div
                 key={c.case_id}
                 onClick={() => navigate(`/cases/${c.case_id}`)}
-                className="p-4 bg-white rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 hover:shadow-sm cursor-pointer transition-all space-y-3 group"
+                className="p-4 bg-slate-950/80 rounded-xl border border-slate-800 hover:border-slate-700 cursor-pointer transition-all space-y-3 group"
               >
                 {/* Header row: ID, FIR, Offence, Status */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs font-bold text-indigo-300 bg-indigo-950 border border-indigo-800 px-2 py-0.5 rounded">
                       {c.case_id}
                     </span>
-                    <span className="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                    <span className="font-mono text-xs text-slate-300 bg-slate-800 px-2 py-0.5 rounded">
                       {c.fir_number || 'FIR Unassigned'}
                     </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${offenceClass}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${offenceClass}`}>
                       {c.offence_category}
                     </span>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      isClosed 
-                        ? 'bg-slate-100 text-slate-700 border border-slate-200' 
-                        : 'bg-amber-50 text-amber-800 border border-amber-200'
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${
+                      isClosed ? 'bg-slate-800 text-slate-400' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${isClosed ? 'bg-slate-400' : 'bg-amber-500'}`} />
-                      {c.status || 'OPEN'}
+                      {c.status || 'ACTIVE'}
                     </span>
+                    <ChevronRight size={15} className="text-slate-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
-
-                  {/* Role in case */}
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
-                    Role: {c.role || 'ASSOCIATE'}
-                  </span>
                 </div>
 
-                {/* Title and Section */}
+                {/* Case Title & Narrative */}
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                    {c.title}
+                  <h3 className="text-sm font-bold text-slate-100 group-hover:text-indigo-300 transition-colors">
+                    {c.case_title || c.title || c.case_id}
                   </h3>
-                  <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-500 mt-1">
-                    <span className="font-mono text-[11px] text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/60">
-                      {c.legal_section || 'Section N/A'}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Calendar size={12} className="text-slate-400" />
-                      {c.date_opened || 'Date Unknown'}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <MapPin size={12} className="text-slate-400" />
-                      {c.police_station || 'Central PS'}, {c.district || 'Headquarters'}
-                    </span>
+                  {c.description && (
+                    <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                      {c.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Footer metadata */}
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400 pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <MapPin size={12} className="text-slate-500" />
+                      <span>{c.district || 'General Area'} {c.police_station ? `• PS: ${c.police_station}` : ''}</span>
+                    </div>
+                    {c.date_opened && (
+                      <div className="flex items-center gap-1">
+                        <Calendar size={12} className="text-slate-500" />
+                        <span>Opened: {c.date_opened}</span>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* Association Narrative */}
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-xs text-slate-600 italic">
-                  "{c.association_narrative || 'Associated with registered case record.'}"
-                </div>
-
-                {/* Card footer CTA */}
-                <div className="flex items-center justify-between text-xs pt-1 text-slate-500">
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    Source: {c.source || 'STRUCTURED_METADATA'}
+                  <span className="text-[11px] font-semibold text-indigo-400 group-hover:text-indigo-300">
+                    Open Case Dossier →
                   </span>
-                  <div className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:text-indigo-800">
-                    <span>Inspect Case Dossier</span>
-                    <ChevronRight size={14} />
-                  </div>
                 </div>
               </div>
             );

@@ -19,6 +19,11 @@ from data.validate_dataset import load_csv
 # In-memory cache
 _PERSONS_CACHE: Optional[Dict[str, Any]] = None
 
+def clear_cache():
+    """Clears in-memory indexed person cache on runtime mutation."""
+    global _PERSONS_CACHE
+    _PERSONS_CACHE = None
+
 def _load_and_index():
     global _PERSONS_CACHE
     if _PERSONS_CACHE is not None:

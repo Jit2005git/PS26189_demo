@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import AppLayout from './components/layout/AppLayout';
 import DashboardPage from './pages/DashboardPage';
 import CasesPage from './pages/CasesPage';
@@ -8,12 +9,15 @@ import FamilyExplorerPage from './pages/FamilyExplorerPage';
 import AdvancedSearchPage from './pages/AdvancedSearchPage';
 import AssistantPage from './pages/AssistantPage';
 import NetworkPage from './pages/NetworkPage';
-import PlaceholderPage from './components/common/PlaceholderPage';
+import AnalyticsPage from './pages/AnalyticsPage';
+import PriorityPage from './pages/PriorityPage';
+import RegisterCasePage from './pages/RegisterCasePage';
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
@@ -24,37 +28,34 @@ export default function App() {
           {/* Step 20: Advanced Search & Investigation Filtering */}
           <Route path="search" element={<AdvancedSearchPage />} />
           
-          {/* Step 17: Case Explorer & Case Analysis */}
+          {/* Step 17 & 27: Case Explorer, Register Case & Case Analysis */}
           <Route path="cases" element={<CasesPage />} />
+          <Route path="cases/new" element={<RegisterCasePage />} />
           <Route path="cases/:caseId" element={<CasesPage />} />
           
-          {/* Step 15B: Interactive network visualization */}
+          {/* Step 15B & 26: Interactive Network Investigation Workspace */}
           <Route path="network" element={<NetworkPage />} />
           
           {/* Step 18: Person Investigation Profile & Entity Directory */}
           <Route path="entities" element={<EntitiesPage />} />
           <Route path="entities/:entityId" element={<PersonProfilePage />} />
+          <Route path="person/:entityId" element={<PersonProfilePage />} />
           
           {/* Step 19: Family & Relationship Explorer */}
+          <Route path="family" element={<FamilyExplorerPage />} />
+          <Route path="family/:entityId" element={<FamilyExplorerPage />} />
           <Route path="entities/:entityId/family" element={<FamilyExplorerPage />} />
           
-          <Route path="analytics" element={
-            <PlaceholderPage 
-              title="Analytics" 
-              description="Deep topological insights and pattern detection." 
-            />
-          } />
+          {/* Step 26: Dedicated Graph Analytics & Intelligence */}
+          <Route path="analytics" element={<AnalyticsPage />} />
           
-          <Route path="priority" element={
-            <PlaceholderPage 
-              title="Investigation Priority" 
-              description="Detailed list of all prioritized analytical leads." 
-            />
-          } />
+          {/* Step 26: Dedicated Prioritized Analytical Leads */}
+          <Route path="priority" element={<PriorityPage />} />
           
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>
+  </ThemeProvider>
   );
 }

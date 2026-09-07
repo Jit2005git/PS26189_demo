@@ -63,12 +63,24 @@ ID_COLUMNS = {
 }
 
 
-def load_csv(filename):
+RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")
+
+
+def load_csv(filename, include_runtime=True):
     filepath = os.path.join(DATA_DIR, filename)
     if not os.path.exists(filepath):
         return None
     with open(filepath, "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+        records = list(csv.DictReader(f))
+
+    if include_runtime and os.path.exists(RUNTIME_DIR):
+        runtime_filepath = os.path.join(RUNTIME_DIR, filename)
+        if os.path.exists(runtime_filepath):
+            with open(runtime_filepath, "r", encoding="utf-8") as rf:
+                runtime_records = list(csv.DictReader(rf))
+                records.extend(runtime_records)
+
+    return records
 
 
 def validate():
@@ -80,7 +92,7 @@ def validate():
     all_data = {}
     print("\n[1] File Existence:")
     for fname in FILES_TO_CHECK:
-        data = load_csv(fname)
+        data = load_csv(fname, include_runtime=False)
         if data is None:
             print(f"  FAIL — {fname} missing")
             all_pass = False

@@ -17,6 +17,11 @@ from data.validate_dataset import load_csv
 # Cache storage
 _CASES_CACHE: Optional[Dict[str, Any]] = None
 
+def clear_cache():
+    """Clears in-memory indexed cases cache on runtime mutation."""
+    global _CASES_CACHE
+    _CASES_CACHE = None
+
 def _load_and_index_dataset():
     global _CASES_CACHE
     if _CASES_CACHE is not None:

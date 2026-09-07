@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List, Dict, Any
 import networkx as nx
 from api.dependencies import get_graph, get_cases
-from api.models import Case, GraphResponse, Node, Edge
+from api.models import Case, GraphResponse, Node, Edge, RegisterCaseRequest, RegisterCaseResponse
 from modules.graph.graph_builder import get_case_subgraph
 from modules.cases.case_service import (
     get_all_cases_enriched,
@@ -12,6 +12,11 @@ from modules.cases.case_service import (
     get_case_evidence_relationships,
     get_case_related_cases_details
 )
+from modules.cases.case_registration_service import (
+    register_case_transaction,
+    ValidationError
+)
+from modules.persistence.runtime_store import get_next_case_id
 
 router = APIRouter()
 
@@ -27,6 +32,28 @@ def list_cases(
         for c in enriched
     ]
     return cases
+
+@router.get("/cases/next-id")
+def get_next_case_id_route():
+    """Returns the dynamically allocated next Case ID."""
+    return {"next_case_id": get_next_case_id()}
+
+@router.post("/cases/register", response_model=RegisterCaseResponse)
+def register_new_case_route(
+    payload: RegisterCaseRequest,
+    request: Request
+):
+    """
+    Step 27: Register New Case + Create / Link Person.
+    Transactional coordinator storing to isolated runtime data and updating live graph.
+    """
+    try:
+        result = register_case_transaction(payload.model_dump(), app_state=request.app.state)
+        return result
+    except ValidationError as ve:
+        raise HTTPException(status_code=400, detail={"message": ve.message, "errors": ve.errors})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Case registration failed: {str(e)}")
 
 @router.get("/cases/{case_id}")
 def get_case_details(

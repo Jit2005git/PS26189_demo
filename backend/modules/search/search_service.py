@@ -23,6 +23,11 @@ from modules.entity_resolution.normalization import normalize_entity
 # Cache for the in-memory indexed dataset
 _SEARCH_INDEX: Optional[Dict[str, Any]] = None
 
+def clear_cache():
+    """Clears in-memory search index cache on runtime mutation."""
+    global _SEARCH_INDEX
+    _SEARCH_INDEX = None
+
 def _get_search_index() -> Dict[str, Any]:
     global _SEARCH_INDEX
     if _SEARCH_INDEX is not None:

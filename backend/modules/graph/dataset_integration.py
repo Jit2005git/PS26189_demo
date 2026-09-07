@@ -134,5 +134,25 @@ def build_dataset_graph():
                     rel["confidence"] = 0.85
                     
                 add_relationship(G, rel)
+
+    # Process all case_persons records (including runtime) to guarantee restart persistence
+    all_case_persons = load_csv("case_persons.csv") or []
+    for cp in all_case_persons:
+        cid = cp.get("case_id")
+        pid = cp.get("person_id")
+        role = cp.get("role", "SUBJECT")
+        if cid and pid:
+            add_entity(G, {"type": "CASE_ID", "value": cid, "evidence": cid, "source": "STRUCTURED_METADATA", "confidence": 1.0})
+            add_entity(G, {"type": "PERSON", "value": pid, "evidence": pid, "source": "STRUCTURED_METADATA", "confidence": 1.0})
+            if not G.has_edge(cid, pid):
+                add_relationship(G, {
+                    "source": cid,
+                    "target": pid,
+                    "relationship_type": "INVOLVED_IN",
+                    "evidence": f"Structured metadata association from case_persons.csv as {role}",
+                    "case_id": cid,
+                    "detection_method": "STRUCTURED_METADATA",
+                    "confidence": 1.0
+                })
             
     return G

@@ -2,11 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
 import networkx as nx
 from api.dependencies import get_graph, get_analytics, get_priority
-from api.models import Entity, Edge
+from api.models import Entity, Edge, DuplicateCheckRequest, DuplicateCheckResponse
 from modules.entities.person_service import (
     get_person_profile, 
     get_person_family_profile, 
     list_persons_summary
+)
+from modules.persistence.runtime_store import get_next_person_id
+from modules.cases.case_registration_service import (
+    check_person_duplicate,
+    search_persons_for_linking
 )
 
 router = APIRouter()
@@ -19,6 +24,26 @@ def get_persons(
 ):
     """Returns synthetic person registry with search and district filtering for Step 18."""
     return list_persons_summary(search=search, district=district, limit=limit)
+
+@router.get("/persons/next-id")
+def get_next_person_id_route():
+    """Returns dynamically allocated next Person ID."""
+    return {"next_person_id": get_next_person_id()}
+
+@router.get("/persons/search-linking")
+def search_persons_for_case_linking(
+    q: str = Query("", description="Search term for linking person to case"),
+    limit: int = Query(10, ge=1, le=50)
+):
+    """Searches registered persons by name, ID, phone, or alias for case linking."""
+    return search_persons_for_linking(query=q, limit=limit)
+
+@router.post("/persons/check-duplicate", response_model=DuplicateCheckResponse)
+def check_person_duplicate_route(
+    payload: DuplicateCheckRequest
+):
+    """Advisory Entity Resolution check for duplicate or similar existing persons."""
+    return check_person_duplicate(payload.model_dump())
 
 @router.get("/entities", response_model=List[Entity])
 def list_entities(
