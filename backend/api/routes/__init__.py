@@ -7,6 +7,7 @@ from .relationships import router as relationships_router
 from .analytics import router as analytics_router
 from .priority import router as priority_router
 from .search import router as search_router
+from .assistant import router as assistant_router
 
 router = APIRouter()
 router.include_router(health_router, tags=["Health"])
@@ -17,3 +18,4 @@ router.include_router(relationships_router, tags=["Relationships"])
 router.include_router(analytics_router, tags=["Analytics"])
 router.include_router(priority_router, tags=["Priority"])
 router.include_router(search_router, tags=["Search"])
+router.include_router(assistant_router, tags=["Assistant"])
