@@ -2,16 +2,20 @@
  * GraphLegend — compact legend illustrating node types and edge semantics.
  */
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { 
+  ChevronDown, ChevronUp, Layers, Users, FolderOpen, 
+  Smartphone, MessageSquare, Car, MapPin, Building2, CreditCard 
+} from 'lucide-react';
 
 const LEGEND_ITEMS = [
-  { type: 'CASE', label: 'Case Record', shape: 'Hexagon', color: '#818cf8', bg: 'bg-indigo-400' },
-  { type: 'PERSON', label: 'Associated Person', shape: 'Circle', color: '#38bdf8', bg: 'bg-sky-400' },
-  { type: 'PHONE', label: 'Phone Identifier', shape: 'Triangle', color: '#34d399', bg: 'bg-emerald-400' },
-  { type: 'BANK_ACCOUNT', label: 'Bank Account', shape: 'Diamond', color: '#fbbf24', bg: 'bg-amber-400' },
-  { type: 'VEHICLE', label: 'Vehicle Asset', shape: 'Rectangle', color: '#c084fc', bg: 'bg-purple-400' },
-  { type: 'LOCATION', label: 'Locality / Address', shape: 'Vee', color: '#f87171', bg: 'bg-red-400' },
-  { type: 'ORGANIZATION', label: 'Organization / Business', shape: 'Star', color: '#f472b6', bg: 'bg-pink-400' },
+  { type: 'PERSON', label: 'Associated Person', icon: Users, color: '#38bdf8', tag: 'Primary Lead', borderClass: 'border-sky-500/40 text-sky-400 bg-sky-950/40' },
+  { type: 'CASE', label: 'Case Record', icon: FolderOpen, color: '#818cf8', tag: 'Case File', borderClass: 'border-indigo-500/40 text-indigo-400 bg-indigo-950/40' },
+  { type: 'PHONE', label: 'Phone Identifier', icon: Smartphone, color: '#34d399', tag: 'Device', borderClass: 'border-emerald-500/40 text-emerald-400 bg-emerald-950/40' },
+  { type: 'WHATSAPP', label: 'WhatsApp / Chat Channel', icon: MessageSquare, color: '#22c55e', tag: 'Channel', borderClass: 'border-green-500/40 text-green-400 bg-green-950/40' },
+  { type: 'VEHICLE', label: 'Vehicle Asset', icon: Car, color: '#c084fc', tag: 'Vehicle Reg', borderClass: 'border-purple-500/40 text-purple-400 bg-purple-950/40' },
+  { type: 'LOCATION', label: 'Locality / Address', icon: MapPin, color: '#f87171', tag: 'Geo Area', borderClass: 'border-rose-500/40 text-rose-400 bg-rose-950/40' },
+  { type: 'ORGANIZATION', label: 'Organization / Business', icon: Building2, color: '#f472b6', tag: 'Business', borderClass: 'border-pink-500/40 text-pink-400 bg-pink-950/40' },
+  { type: 'BANK_ACCOUNT', label: 'Bank Account', icon: CreditCard, color: '#fbbf24', tag: 'Financial', borderClass: 'border-amber-500/40 text-amber-400 bg-amber-950/40' },
 ];
 
 export default function GraphLegend() {
@@ -31,19 +35,24 @@ export default function GraphLegend() {
       </button>
 
       {!collapsed && (
-        <div className="px-3 pb-3 pt-1 border-t border-slate-800/80 space-y-1.5 text-xs">
-          {LEGEND_ITEMS.map((item) => (
-            <div key={item.type} className="flex items-center justify-between py-0.5">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${item.bg} shrink-0`}></span>
-                <span className="text-slate-300 text-[11px] font-medium">{item.label}</span>
+        <div className="px-3 pb-3 pt-1 border-t border-slate-800/80 space-y-2 text-xs">
+          {LEGEND_ITEMS.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.type} className="flex items-center justify-between py-0.5">
+                <div className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border ${item.borderClass}`}>
+                    <Icon size={11} />
+                  </div>
+                  <span className="text-slate-300 text-[11px] font-medium">{item.label}</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">{item.tag}</span>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">{item.shape}</span>
-            </div>
-          ))}
+            );
+          })}
           <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
             <span>Edge Arrow: Target</span>
-            <span>Click: Filter Neighborhood</span>
+            <span>Click: Inspect Dossier</span>
           </div>
         </div>
       )}

@@ -10,49 +10,46 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import CytoscapeComponent from 'react-cytoscapejs';
 import { useTheme } from '../../context/ThemeContext';
+import { getTypeStyle, resolveVisualType } from './graphIcons';
 
-// Visual hierarchy & distinct iconography shapes
-const TYPE_STYLES = {
-  CASE:         { color: '#818cf8', shape: 'hexagon',         size: 64, zIndex: 10 }, // indigo-400
-  PERSON:       { color: '#38bdf8', shape: 'ellipse',         size: 52, zIndex: 9  }, // sky-400
-  PHONE:        { color: '#34d399', shape: 'triangle',        size: 42, zIndex: 6  }, // emerald-400
-  BANK_ACCOUNT: { color: '#fbbf24', shape: 'diamond',         size: 44, zIndex: 6  }, // amber-400
-  VEHICLE:      { color: '#c084fc', shape: 'round-rectangle', size: 42, zIndex: 5  }, // purple-400
-  LOCATION:     { color: '#f87171', shape: 'vee',             size: 42, zIndex: 5  }, // red-400
-  ORGANIZATION: { color: '#f472b6', shape: 'star',            size: 48, zIndex: 7  }, // pink-400
-  UNKNOWN:      { color: '#94a3b8', shape: 'ellipse',         size: 38, zIndex: 1  },
-};
-
-function getTypeStyle(type) {
-  return TYPE_STYLES[type] || TYPE_STYLES.UNKNOWN;
-}
-
-// Dynamic investigation stylesheet with theme-aware text halos and edges
+// Dynamic investigation stylesheet with theme-aware text halos, vector iconography, and edges
 function getGraphStylesheet(isDark) {
   return [
     {
       selector: 'node',
       style: {
-        'background-color': (ele) => getTypeStyle(ele.data('type')).color,
-        'shape': (ele) => getTypeStyle(ele.data('type')).shape,
-        'width': (ele) => getTypeStyle(ele.data('type')).size,
-        'height': (ele) => getTypeStyle(ele.data('type')).size,
+        'shape': (ele) => getTypeStyle(resolveVisualType(ele.data())).shape,
+        'width': (ele) => getTypeStyle(resolveVisualType(ele.data())).size,
+        'height': (ele) => getTypeStyle(resolveVisualType(ele.data())).size,
+        'background-color': (ele) => getTypeStyle(resolveVisualType(ele.data())).bgColor,
+        'background-image': (ele) => getTypeStyle(resolveVisualType(ele.data())).iconSvg,
+        'background-fit': 'none',
+        'background-width': '52%',
+        'background-height': '52%',
+        'background-position-x': '50%',
+        'background-position-y': '50%',
+        'background-repeat': 'no-repeat',
+        'border-width': (ele) => getTypeStyle(resolveVisualType(ele.data())).borderWidth,
+        'border-color': (ele) => getTypeStyle(resolveVisualType(ele.data())).color,
+        'border-opacity': 0.95,
+        'background-opacity': 1,
         'label': 'data(label)',
-        'font-size': '10px',
+        'font-size': (ele) => (ele.data('type') === 'PERSON' || ele.data('type') === 'CASE') ? '11px' : '10px',
         'font-weight': '600',
-        'color': isDark ? '#f8fafc' : '#0f172a',
+        'color': isDark ? '#f1f5f9' : '#0f172a',
         'text-valign': 'bottom',
         'text-halign': 'center',
-        'text-margin-y': 5,
-        'text-max-width': '95px',
+        'text-margin-y': 7,
+        'text-max-width': '115px',
         'text-wrap': 'ellipsis',
-        'text-outline-color': isDark ? '#0b0f19' : '#ffffff',
-        'text-outline-width': 2.5,
-        'border-width': 2,
-        'border-color': isDark ? '#1e293b' : '#cbd5e1',
-        'border-opacity': 0.9,
-        'background-opacity': 0.95,
-        'z-index': (ele) => getTypeStyle(ele.data('type')).zIndex,
+        'text-background-color': isDark ? '#080d1a' : '#ffffff',
+        'text-background-opacity': 0.92,
+        'text-background-padding': '3px',
+        'text-background-shape': 'round-rectangle',
+        'text-border-color': isDark ? '#1e293b' : '#cbd5e1',
+        'text-border-width': 1,
+        'text-border-opacity': 0.8,
+        'z-index': (ele) => getTypeStyle(resolveVisualType(ele.data())).zIndex,
         'transition-property': 'border-width, border-color, background-opacity, opacity',
         'transition-duration': '180ms',
       },
@@ -60,19 +57,20 @@ function getGraphStylesheet(isDark) {
     {
       selector: 'node:selected',
       style: {
-        'border-width': 4,
+        'border-width': 3.5,
         'border-color': '#38bdf8',
-        'background-opacity': 1,
+        'background-image': (ele) => getTypeStyle(resolveVisualType(ele.data())).iconSvgSelected,
+        'underlay-color': '#38bdf8',
+        'underlay-padding': 6,
+        'underlay-opacity': 0.45,
+        'underlay-shape': (ele) => getTypeStyle(resolveVisualType(ele.data())).shape,
         'z-index': 999,
-        'shadow-blur': 12,
-        'shadow-color': isDark ? '#38bdf8' : '#0284c7',
-        'shadow-opacity': 0.8,
       },
     },
     {
       selector: 'node.highlighted',
       style: {
-        'border-width': 3,
+        'border-width': 3.5,
         'border-color': '#60a5fa',
         'opacity': 1,
         'z-index': 990,
@@ -81,12 +79,17 @@ function getGraphStylesheet(isDark) {
     {
       selector: 'edge',
       style: {
-        'width': 2,
-        'line-color': isDark ? '#475569' : '#94a3b8',
-        'target-arrow-color': isDark ? '#475569' : '#94a3b8',
+        'width': (ele) => (ele.data('confidence') >= 0.85 ? 2.5 : 1.8),
+        'line-color': (ele) => (ele.data('confidence') >= 0.85 
+          ? (isDark ? '#64748b' : '#64748b') 
+          : (isDark ? '#334155' : '#94a3b8')),
+        'target-arrow-color': (ele) => (ele.data('confidence') >= 0.85 
+          ? (isDark ? '#64748b' : '#64748b') 
+          : (isDark ? '#334155' : '#94a3b8')),
         'target-arrow-shape': 'triangle',
         'arrow-scale': 1.1,
         'curve-style': 'bezier',
+        'line-style': (ele) => (ele.data('detection_method') === 'STRUCTURED_METADATA' ? 'dashed' : 'solid'),
         'label': 'data(relationship_type)',
         'font-size': '9px',
         'font-weight': '500',
@@ -97,7 +100,7 @@ function getGraphStylesheet(isDark) {
         'text-background-opacity': 0.92,
         'text-background-padding': '3px',
         'text-background-shape': 'round-rectangle',
-        'opacity': 0.85,
+        'opacity': 0.88,
         'transition-property': 'line-color, target-arrow-color, opacity, width',
         'transition-duration': '180ms',
       },
@@ -118,7 +121,7 @@ function getGraphStylesheet(isDark) {
       style: {
         'line-color': '#60a5fa',
         'target-arrow-color': '#60a5fa',
-        'width': 2.5,
+        'width': 2.6,
         'opacity': 0.95,
         'z-index': 990,
       },
@@ -137,13 +140,13 @@ const LAYOUT_CONFIG = {
   name: 'cose',
   animate: false,
   randomize: false,
-  componentSpacing: 100,
-  nodeRepulsion: () => 14000,
-  nodeOverlap: 40,
-  idealEdgeLength: () => 120,
+  componentSpacing: 110,
+  nodeRepulsion: () => 16000,
+  nodeOverlap: 45,
+  idealEdgeLength: () => 130,
   edgeElasticity: () => 80,
   nestingFactor: 5,
-  gravity: 50,
+  gravity: 45,
   numIter: 1000,
   initialTemp: 200,
   coolingFactor: 0.95,
