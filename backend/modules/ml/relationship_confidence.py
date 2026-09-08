@@ -13,6 +13,16 @@ from modules.entity_resolution.resolver import calculate_string_similarity
 MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../models/relationship_confidence_model.joblib'))
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../data'))
 
+_loaded_model = None
+
+def get_model():
+    global _loaded_model
+    if _loaded_model is None:
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError("Model not trained yet.")
+        _loaded_model = joblib.load(MODEL_PATH)
+    return _loaded_model
+
 class DatasetContext:
     _instance = None
     
@@ -179,6 +189,8 @@ def train_model(data_path: str):
     
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     joblib.dump(model, MODEL_PATH)
+    global _loaded_model
+    _loaded_model = model
     
     return metrics
 
@@ -186,10 +198,7 @@ def predict_confidence(rel: dict) -> dict:
     """
     Predicts the evidence confidence for a candidate relationship.
     """
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError("Model not trained yet.")
-        
-    model = joblib.load(MODEL_PATH)
+    model = get_model()
     
     feats = extract_features(rel)
     prob = model.predict_proba([feats])[0][1]

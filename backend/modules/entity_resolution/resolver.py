@@ -1,6 +1,4 @@
 import difflib
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 
 # Global model instance for reuse
 _model = None
@@ -8,6 +6,7 @@ _model = None
 def get_model():
     global _model
     if _model is None:
+        from sentence_transformers import SentenceTransformer
         _model = SentenceTransformer("all-MiniLM-L6-v2")
     return _model
 
@@ -19,6 +18,7 @@ def calculate_string_similarity(str1: str, str2: str) -> float:
 def calculate_embedding_similarity(str1: str, str2: str) -> float:
     if not str1 or not str2:
         return 0.0
+    from sklearn.metrics.pairwise import cosine_similarity
     model = get_model()
     embeddings = model.encode([str1, str2])
     sim = cosine_similarity([embeddings[0]], [embeddings[1]])[0][0]

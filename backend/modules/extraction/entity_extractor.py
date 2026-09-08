@@ -1,10 +1,23 @@
 import re
 import spacy
 
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    nlp = None
+_nlp = None
+_nlp_loaded = False
+
+def get_nlp():
+    global _nlp, _nlp_loaded
+    if not _nlp_loaded:
+        try:
+            _nlp = spacy.load("en_core_web_sm")
+        except OSError:
+            _nlp = None
+        _nlp_loaded = True
+    return _nlp
+
+def __getattr__(name: str):
+    if name == "nlp":
+        return get_nlp()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 def extract_entities(text: str) -> list:
     """
@@ -17,6 +30,7 @@ def extract_entities(text: str) -> list:
     extracted = []
     
     # 1. SPACY NER
+    nlp = get_nlp()
     if nlp:
         doc = nlp(text)
         for ent in doc.ents:
