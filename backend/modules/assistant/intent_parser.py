@@ -28,16 +28,22 @@ def _find_person_candidates(name_query: str) -> List[Dict[str, Any]]:
     """Looks up person candidates by full or partial name from the indexed dataset."""
     index = _get_search_index()
     q = name_query.lower().strip()
-    candidates = []
+    if not q:
+        return []
+    
+    exact_matches = []
+    partial_matches = []
     
     for p in index["persons"]:
         pname = p["full_name"].lower()
-        if q == pname:
-            # Exact match prioritized
-            candidates.insert(0, p)
-        elif q in pname or any(q in a.lower() for a in p["aliases"]):
-            candidates.append(p)
+        aliases = [a.lower() for a in p.get("aliases", [])]
+        if q == pname or any(q == a for a in aliases):
+            exact_matches.append(p)
+        elif q in pname or any(q in a for a in aliases):
+            partial_matches.append(p)
             
+    candidates = exact_matches if exact_matches else partial_matches
+    
     # Deduplicate while preserving order
     seen = set()
     unique = []
@@ -46,6 +52,42 @@ def _find_person_candidates(name_query: str) -> List[Dict[str, Any]]:
             seen.add(c["person_id"])
             unique.append(c)
     return unique
+
+
+def _extract_person_name_from_profile_query(q_raw: str) -> Optional[str]:
+    """Extracts target person name from natural language profile queries."""
+    # Pattern 1: "Show Rahul Banerjee's profile" / "Arjun Mehta's profile" / "Rahul Banerjee's details"
+    m_apos = re.search(r'(?:show|give|fetch|display|view|get)?(?:\s+me)?\s+([a-zA-Z\s.-]+?)\'s\s+(?:profile|cases|details|dossier|record)', q_raw, re.IGNORECASE)
+    if m_apos:
+        name = m_apos.group(1).strip().rstrip("?.")
+        if name.lower() not in ["this", "that", "the", "a", "case", "case's"]:
+            return name
+
+    # Pattern 2: "Show me the profile of Rahul Banerjee" / "profile of Rahul Banerjee" / "details of Rahul Banerjee"
+    m_of = re.search(r'(?:show|give|fetch|display|view|get)?(?:\s+me)?\s+(?:the\s+)?(?:profile|dossier|details|record)\s+(?:of|for|on|about)\s+([a-zA-Z\s.-]+)', q_raw, re.IGNORECASE)
+    if m_of:
+        name = m_of.group(1).strip().rstrip("?.")
+        if name.lower() not in ["this person", "the person", "a person", "this case", "the case", "these cases", "common persons"]:
+            return name
+
+    # Pattern 3: "Tell me about Rahul Banerjee" / "Tell me more about Arjun Mehta" / "who is Rahul Banerjee"
+    m_tell = re.search(r'(?:tell\s+me\s+(?:more\s+)?about|who\s+is)\s+([a-zA-Z\s.-]+)', q_raw, re.IGNORECASE)
+    if m_tell:
+        name = m_tell.group(1).strip().rstrip("?.")
+        if name.lower() not in ["this person", "the person", "a person", "this case", "the case"]:
+            return name
+
+    # Pattern 4: "What cases does Rahul Banerjee have?"
+    m_have = re.search(r'(?:what|which)\s+cases\s+does\s+([a-zA-Z\s.-]+?)\s+(?:have|hold)', q_raw, re.IGNORECASE)
+    if m_have:
+        return m_have.group(1).strip().rstrip("?.")
+
+    # Pattern 5: "What cases is Rahul Banerjee associated with?"
+    m_assoc = re.search(r'(?:what|which)\s+cases\s+(?:is|are)\s+([a-zA-Z\s.-]+?)\s+(?:associated|linked)', q_raw, re.IGNORECASE)
+    if m_assoc:
+        return m_assoc.group(1).strip().rstrip("?.")
+
+    return None
 
 
 def parse_investigator_query(
@@ -79,7 +121,6 @@ def parse_investigator_query(
     phone_prefix_match = re.search(r'(?:starts?\s+with|starting\s+with|prefix)\s+([0-9]{2,6})\b', q_lower)
 
     # Check for case count constraints
-    # "at least X cases", "more than X cases", ">= X cases", "minimum X cases"
     min_cases_match = re.search(r'(?:at\s+least|more\s+than|minimum|>=?)\s+(\d+)\s+(?:associated\s+)?cases?', q_lower)
     max_cases_match = re.search(r'(?:at\s+most|fewer\s+than|less\s+than|<=?)\s+(\d+)\s+(?:associated\s+)?cases?', q_lower)
     exact_cases_match = re.search(r'(?:exactly|equal\s+to|==)\s+(\d+)\s+(?:associated\s+)?cases?', q_lower)
@@ -107,6 +148,13 @@ def parse_investigator_query(
     # INTENT CLASSIFICATION RULES
     # -------------------------------------------------------------
 
+    # Explicit Case ID lookup
+    if extracted_cid and any(k in q_lower for k in ["tell me", "details", "case details", "show case", "record", "about"]):
+        return StructuredAssistantQuery(
+            intent=AssistantIntent.CASE_DETAILS,
+            case_id=extracted_cid
+        )
+
     # Archetype 8: Priority Explanation
     # "Why is Arjun Mehta an investigation priority?", "Why is this person high priority?"
     if any(k in q_lower for k in ["why is", "reason for priority", "priority reason", "why priority"]):
@@ -128,10 +176,18 @@ def parse_investigator_query(
                     requested_aspect="PRIORITY"
                 )
             elif len(candidates) > 1:
+                cand_lines = [f" {i+1}. {c['full_name']} — {c['person_id']}" for i, c in enumerate(candidates)]
                 return StructuredAssistantQuery(
                     intent=AssistantIntent.CLARIFICATION_REQUIRED,
                     person_name=name_found,
-                    clarification_message=f"The name '{name_found}' matches {len(candidates)} records. Please select the intended person to explain priority."
+                    clarification_message=f"I found multiple matching people:\n" + "\n".join(cand_lines) + "\n\nWhich person would you like to inspect?"
+                )
+            else:
+                return StructuredAssistantQuery(
+                    intent=AssistantIntent.PRIORITY_EXPLANATION,
+                    person_name=name_found,
+                    requested_aspect="PRIORITY",
+                    clarification_message=f"No matching person was found in the synthetic investigation dataset for '{name_found}'. No associated case records or investigative relationships are available for this name."
                 )
         elif "arjun mehta" in q_lower:
             return StructuredAssistantQuery(
@@ -162,10 +218,18 @@ def parse_investigator_query(
                     requested_aspect="NETWORK"
                 )
             elif len(candidates) > 1:
+                cand_lines = [f" {i+1}. {c['full_name']} — {c['person_id']}" for i, c in enumerate(candidates)]
                 return StructuredAssistantQuery(
                     intent=AssistantIntent.CLARIFICATION_REQUIRED,
                     person_name=name_found,
-                    clarification_message=f"The name '{name_found}' matches {len(candidates)} records. Please select the intended person to query network connections."
+                    clarification_message=f"I found multiple matching people:\n" + "\n".join(cand_lines) + "\n\nWhich person would you like to inspect?"
+                )
+            else:
+                return StructuredAssistantQuery(
+                    intent=AssistantIntent.NETWORK_QUERY,
+                    person_name=name_found,
+                    requested_aspect="NETWORK",
+                    clarification_message=f"No matching person was found in the synthetic investigation dataset for '{name_found}'. No associated case records or investigative relationships are available for this name."
                 )
         elif "arjun mehta" in q_lower:
             return StructuredAssistantQuery(
@@ -185,88 +249,107 @@ def parse_investigator_query(
             requested_aspect="CASES"
         )
 
-    # Archetype 6: What cases is X associated with? / Case Details
-    if ("what cases" in q_lower or "which cases" in q_lower or "cases associated with" in q_lower) and not any(k in q_lower for k in ["connected through", "connectors"]):
-        c_match = re.search(r'(?:cases is|cases are)\s+([a-zA-Z\s]+?)\s+associated', q_raw, re.IGNORECASE)
-        name_found = c_match.group(1).strip() if c_match else None
-        if extracted_pid:
-            return StructuredAssistantQuery(
-                intent=AssistantIntent.PERSON_PROFILE,
-                person_id=extracted_pid,
-                requested_aspect="CASES"
-            )
-        elif name_found:
-            candidates = _find_person_candidates(name_found)
-            if len(candidates) == 1:
-                return StructuredAssistantQuery(
-                    intent=AssistantIntent.PERSON_PROFILE,
-                    person_id=candidates[0]["person_id"],
-                    person_name=candidates[0]["full_name"],
-                    requested_aspect="CASES"
-                )
-            elif len(candidates) > 1:
-                return StructuredAssistantQuery(
-                    intent=AssistantIntent.CLARIFICATION_REQUIRED,
-                    person_name=name_found,
-                    clarification_message=f"The name '{name_found}' matches {len(candidates)} records. Please select the intended person."
-                )
-        elif "arjun mehta" in q_lower:
-            return StructuredAssistantQuery(
-                intent=AssistantIntent.PERSON_PROFILE,
-                person_id="PERSON-001",
-                person_name="Arjun Mehta",
-                requested_aspect="CASES"
-            )
-
-    # Archetype 5: Tell me more about [Person Name / ID] (Person Profile)
-    if any(k in q_lower for k in ["tell me more about", "tell me about", "who is", "profile for", "dossier for", "details on", "details about"]):
-        # Check if case details
-        if extracted_cid:
+    # Person Profile / Details Extraction (Archetypes 5, 6 & Natural Language variations)
+    extracted_target_name = _extract_person_name_from_profile_query(q_raw)
+    if extracted_target_name:
+        # Check if extracted name happens to be a case ID
+        cid_in_name = re.search(r'\bCASE-\d{3}\b', extracted_target_name, re.IGNORECASE)
+        if cid_in_name:
             return StructuredAssistantQuery(
                 intent=AssistantIntent.CASE_DETAILS,
-                case_id=extracted_cid
+                case_id=cid_in_name.group(0).upper()
             )
 
-        # Check person
-        name_extract = None
-        if extracted_pid:
+        # Check if extracted name happens to be a person ID
+        pid_in_name = re.search(r'\bPERSON-\d{3}\b', extracted_target_name, re.IGNORECASE)
+        if pid_in_name:
             return StructuredAssistantQuery(
                 intent=AssistantIntent.PERSON_PROFILE,
-                person_id=extracted_pid,
-                requested_aspect="OVERVIEW"
+                person_id=pid_in_name.group(0).upper(),
+                requested_aspect="CASES" if ("what cases" in q_lower or "which cases" in q_lower or "cases" in q_lower) else "OVERVIEW"
+            )
+
+        aspect = "CASES" if ("what cases" in q_lower or "which cases" in q_lower or "cases" in q_lower) else "OVERVIEW"
+        candidates = _find_person_candidates(extracted_target_name)
+
+        if len(candidates) == 1:
+            return StructuredAssistantQuery(
+                intent=AssistantIntent.PERSON_PROFILE,
+                person_id=candidates[0]["person_id"],
+                person_name=candidates[0]["full_name"],
+                requested_aspect=aspect
+            )
+        elif len(candidates) > 1:
+            # Ambiguous name -> NEVER GUESS
+            cand_lines = [f" {i+1}. {c['full_name']} — {c['person_id']}" for i, c in enumerate(candidates)]
+            return StructuredAssistantQuery(
+                intent=AssistantIntent.CLARIFICATION_REQUIRED,
+                person_name=extracted_target_name,
+                clarification_message=f"I found multiple matching people:\n" + "\n".join(cand_lines) + "\n\nWhich person would you like to inspect?"
             )
         else:
-            # Extract whatever string follows "about " or "who is "
-            match = re.search(r'(?:about|who is|dossier for|profile for|details on|details about)\s+([a-zA-Z\s]+)', q_raw, re.IGNORECASE)
-            if match:
-                candidate_str = match.group(1).strip()
-                # Exclude question marks
-                candidate_str = candidate_str.rstrip("?.")
-                if len(candidate_str) > 1:
-                    name_extract = candidate_str
+            # Unknown person name -> NO_MATCH fast path
+            return StructuredAssistantQuery(
+                intent=AssistantIntent.PERSON_PROFILE,
+                person_name=extracted_target_name,
+                requested_aspect=aspect,
+                clarification_message=f"No matching person was found in the synthetic investigation dataset for '{extracted_target_name}'. No associated case records or investigative relationships are available for this name."
+            )
 
-        if name_extract:
-            candidates = _find_person_candidates(name_extract)
-            if len(candidates) == 1:
-                return StructuredAssistantQuery(
-                    intent=AssistantIntent.PERSON_PROFILE,
-                    person_id=candidates[0]["person_id"],
-                    person_name=candidates[0]["full_name"],
-                    requested_aspect="OVERVIEW"
-                )
-            elif len(candidates) > 1:
-                # Ambiguous name -> NEVER GUESS
-                return StructuredAssistantQuery(
-                    intent=AssistantIntent.CLARIFICATION_REQUIRED,
-                    person_name=name_extract,
-                    clarification_message=f"The name '{name_extract}' matches {len(candidates)} records in the database. Please select the intended person."
-                )
-            else:
-                return StructuredAssistantQuery(
-                    intent=AssistantIntent.PERSON_PROFILE,
-                    person_name=name_extract,
-                    clarification_message=f"No person record found matching '{name_extract}'."
-                )
+    # Direct person ID profile query
+    if extracted_pid:
+        aspect = "CASES" if ("what cases" in q_lower or "which cases" in q_lower or "cases" in q_lower) else "OVERVIEW"
+        return StructuredAssistantQuery(
+            intent=AssistantIntent.PERSON_PROFILE,
+            person_id=extracted_pid,
+            requested_aspect=aspect
+        )
+
+    # Phone queries (explicit exact / search)
+    phone_search_match = re.search(r'(?:search\s+phone|find\s+phone|phone\s+number|phone)\s*(?:is|:|=)?\s*([+0-9\s-]{7,18})\b', q_raw, re.IGNORECASE)
+    if phone_search_match and not phone_suffix_match and not phone_prefix_match:
+        return StructuredAssistantQuery(
+            intent=AssistantIntent.PERSON_SEARCH,
+            phone=phone_search_match.group(1).strip()
+        )
+
+    # Vehicle queries
+    veh_match = re.search(r'(?:search\s+vehicle|find\s+vehicle|vehicle|car|bike|reg|registration)\s*(?:number|no|id)?\s*[:=]?\s*([A-Za-z0-9-]+)\b', q_raw, re.IGNORECASE)
+    if veh_match:
+        v_cand = veh_match.group(1).strip()
+        if v_cand.lower() not in ["details", "cases", "records", "search", "a", "the", "in"]:
+            return StructuredAssistantQuery(
+                intent=AssistantIntent.PERSON_SEARCH,
+                vehicle=v_cand
+            )
+
+    # Organization queries
+    org_match = re.search(r'(?:search\s+organization|find\s+organization|organization|company|syndicate|org)\s*[:=]?\s*([a-zA-Z0-9\s.-]+?)(?:\?|$)', q_raw, re.IGNORECASE)
+    if org_match:
+        o_cand = org_match.group(1).strip()
+        if o_cand.lower() not in ["details", "cases", "records", "search", "a", "the", "chart"]:
+            return StructuredAssistantQuery(
+                intent=AssistantIntent.PERSON_SEARCH,
+                organization=o_cand
+            )
+
+    # Biometric queries
+    bio_match = re.search(r'(?:search\s+biometric|find\s+biometric|biometric(?:\s+id)?)\s*[:=]?\s*([A-Za-z0-9_-]+)\b', q_raw, re.IGNORECASE)
+    if bio_match:
+        return StructuredAssistantQuery(
+            intent=AssistantIntent.PERSON_SEARCH,
+            biometric_id=bio_match.group(1).strip()
+        )
+
+    # Location-specific case query (e.g. "Find cases in Atlantis")
+    loc_explicit_match = re.search(r'(?:cases?\s+in|location|city|district)\s+([a-zA-Z\s.-]+?)(?:\?|$)', q_raw, re.IGNORECASE)
+    if loc_explicit_match and not matched_location:
+        loc_val = loc_explicit_match.group(1).strip().title()
+        if loc_val.lower() not in ["the", "a", "this", "details", "cases", "records"]:
+            return StructuredAssistantQuery(
+                intent=AssistantIntent.CASE_SEARCH,
+                location=loc_val
+            )
 
     # Archetype 4: Phone Suffix / Prefix search
     if phone_suffix_match or phone_prefix_match:

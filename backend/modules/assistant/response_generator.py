@@ -19,6 +19,7 @@ from typing import Dict, List, Any, Optional
 from modules.assistant.models import (
     StructuredAssistantQuery, 
     AssistantIntent, 
+    AssistantResponseState,
     ProvenanceItem, 
     PersonCandidate
 )
@@ -34,9 +35,65 @@ def build_grounded_response(
     strictly using facts retrieved by deterministic backend services.
     """
     intent = query.intent
+    response_state = execution_result.get("response_state")
     provenance: List[ProvenanceItem] = []
     answer_parts = []
     suggested_followups: List[str] = []
+
+    # 0. EARLY NO_MATCH RETURN (Zero hallucination guard)
+    if response_state == AssistantResponseState.NO_MATCH:
+        no_match_type = execution_result.get("no_match_entity_type", "general")
+        no_match_target = execution_result.get("no_match_target") or "the requested identifier"
+
+        if no_match_type == "person":
+            answer_parts.append(
+                f"No matching person was found in the synthetic investigation dataset for '{no_match_target}'. "
+                f"No associated case records or investigative relationships are available for this name (no person record found)."
+            )
+        elif no_match_type == "case":
+            answer_parts.append(
+                f"No matching case record was found in the synthetic investigation dataset for '{no_match_target}' (case record not found). "
+                f"No associated case details or investigative records are available for this case ID."
+            )
+        elif no_match_type == "phone":
+            answer_parts.append(
+                f"No matching phone record was found in the synthetic investigation dataset for '{no_match_target}'. "
+                f"No associated person records or investigative communications are available for this number."
+            )
+        elif no_match_type == "vehicle":
+            answer_parts.append(
+                f"No matching vehicle record was found in the synthetic investigation dataset for '{no_match_target}'. "
+                f"No associated person records or vehicle registrations are available for this vehicle."
+            )
+        elif no_match_type == "location":
+            answer_parts.append(
+                f"No matching location record was found in the synthetic investigation dataset for '{no_match_target}'. "
+                f"No associated case records or person records are available for this location."
+            )
+        elif no_match_type == "organization":
+            answer_parts.append(
+                f"No matching organization record was found in the synthetic investigation dataset for '{no_match_target}'. "
+                f"No associated person or case records are available for this organization."
+            )
+        elif no_match_type == "biometric":
+            answer_parts.append(
+                f"No matching biometric record was found in the synthetic investigation dataset for '{no_match_target}'. "
+                f"No associated person records are available in the synthetic dataset."
+            )
+        else:
+            answer_parts.append(
+                f"No matching records were found in the synthetic investigation dataset for '{no_match_target}'."
+            )
+
+        return {
+            "question": question,
+            "intent": intent,
+            "response_state": response_state,
+            "structured_query": query,
+            "answer_markdown": "\n".join(answer_parts),
+            "provenance": [],
+            "suggested_followups": []
+        }
 
     # 1. INTENT: PERSON_SEARCH
     if intent == AssistantIntent.PERSON_SEARCH:
@@ -315,11 +372,14 @@ def build_grounded_response(
     # 8. INTENT: CLARIFICATION_REQUIRED (Ambiguous person name)
     elif intent == AssistantIntent.CLARIFICATION_REQUIRED:
         candidates = execution_result.get("candidates", [])
-        answer_parts.append(f"The name **'{query.person_name}'** is ambiguous and matches **{len(candidates)}** individuals in the database. In accordance with investigative integrity rules, the system will not guess.")
-        answer_parts.append("\nPlease select which individual you would like to inspect:\n")
-        for c in candidates:
-            answer_parts.append(f"- **{c.full_name}** (`{c.person_id}`) — {c.location} • {c.associated_case_count} associated case(s) • {c.occupation or 'Unspecified'}")
-            suggested_followups.append(f"Tell me about {c.person_id}")
+        answer_parts.append(f"The name **'{query.person_name}'** is ambiguous. I found multiple matching people:\n")
+        for i, c in enumerate(candidates):
+            c_name = getattr(c, 'full_name', None) or (c.get('full_name') if isinstance(c, dict) else str(c))
+            c_id = getattr(c, 'person_id', None) or (c.get('person_id') if isinstance(c, dict) else "")
+            answer_parts.append(f" {i+1}. {c_name} — {c_id}")
+            if c_id:
+                suggested_followups.append(f"Tell me about {c_id}")
+        answer_parts.append("\nWhich person would you like to inspect?")
 
     # 9. INTENT: GENERAL_ANALYTICAL_QUERY
     elif intent == AssistantIntent.GENERAL_ANALYTICAL_QUERY:
