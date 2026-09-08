@@ -35,7 +35,7 @@ npm install
 npm run dev
 ```
 The frontend dashboard will run typically at `http://localhost:5173`.
-
+Url: https://ps26189-frontend.onrender.com
 ## Demonstration Data Policy
 **IMPORTANT:** ALL demonstration data used in this project must be synthetic, fictional, and anonymized. Do not use any real criminal, police, or personally identifiable information.
 
