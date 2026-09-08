@@ -10,15 +10,17 @@
 import React from 'react';
 import { 
   X, Info, ExternalLink, ShieldAlert, Crosshair, Users, 
-  FolderOpen, Phone, CreditCard, Car, Building2, MapPin, 
-  FileText, Activity, Link2, Eye
+  FolderOpen, Phone, Smartphone, CreditCard, Car, Building2, MapPin, 
+  FileText, Activity, Link2, Eye, MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { resolveVisualType } from './graphIcons';
 
 const TYPE_ICONS = {
   CASE: FolderOpen,
   PERSON: Users,
-  PHONE: Phone,
+  PHONE: Smartphone,
+  WHATSAPP: MessageSquare,
   BANK_ACCOUNT: CreditCard,
   VEHICLE: Car,
   LOCATION: MapPin,
@@ -122,7 +124,8 @@ export default function EntityDetails({ selected, graphData, onClose, onCenterNo
   if (elementType === 'node') {
     const isPerson = data.type === 'PERSON';
     const isCase = data.type === 'CASE';
-    const Icon = TYPE_ICONS[data.type] || Users;
+    const visualType = resolveVisualType(data);
+    const Icon = TYPE_ICONS[visualType] || TYPE_ICONS[data.type] || Users;
 
     return (
       <div className="flex flex-col h-full bg-slate-950 text-slate-200 select-none">
