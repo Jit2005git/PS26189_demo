@@ -15,6 +15,13 @@ from enum import Enum
 from typing import List, Optional, Any, Dict, Union
 from pydantic import BaseModel, Field
 
+class AssistantResponseState(str, Enum):
+    MATCH_FOUND = "MATCH_FOUND"
+    NO_MATCH = "NO_MATCH"
+    CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
+    ANSWER = "ANSWER"
+
+
 class AssistantIntent(str, Enum):
     PERSON_SEARCH = "PERSON_SEARCH"
     CASE_SEARCH = "CASE_SEARCH"
@@ -36,6 +43,10 @@ class StructuredAssistantQuery(BaseModel):
     person_id: Optional[str] = None
     person_name: Optional[str] = None
     case_id: Optional[str] = None
+    phone: Optional[str] = None
+    vehicle: Optional[str] = None
+    organization: Optional[str] = None
+    biometric_id: Optional[str] = None
     
     # Filters
     offence: Optional[str] = None
@@ -85,6 +96,7 @@ class AssistantQueryRequest(BaseModel):
 class AssistantQueryResponse(BaseModel):
     question: str
     intent: AssistantIntent
+    response_state: AssistantResponseState = AssistantResponseState.ANSWER
     structured_query: StructuredAssistantQuery
     answer_markdown: str
     provenance: List[ProvenanceItem] = Field(default_factory=list)

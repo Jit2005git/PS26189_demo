@@ -30,7 +30,7 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-from modules.assistant.models import AssistantIntent, AssistantQueryResponse
+from modules.assistant.models import AssistantIntent, AssistantResponseState, AssistantQueryResponse
 from modules.assistant.assistant_service import process_assistant_query
 from modules.assistant.intent_parser import parse_investigator_query
 from modules.assistant.llm_adapter import MockLLMClient
@@ -245,3 +245,211 @@ def test_20_api_endpoint_empty_validation(client):
     """Test POST /api/assistant/query with empty question returns 400."""
     resp = client.post("/api/assistant/query", json={"question": "   "})
     assert resp.status_code == 400
+
+
+# ==============================================================================
+# Step 21 Anti-Hallucination & Regression Suite
+# ==============================================================================
+
+def test_21_regression_rahul_banerjee_no_match(app_context):
+    """
+    Requirement 12 Regression Test:
+    Query: 'Show me the profile of Rahul Banerjee'
+    where Rahul Banerjee does not exist.
+    Assert:
+    - no person profile is returned
+    - no fabricated case is returned
+    - no fabricated address is returned
+    - no fabricated phone is returned
+    - response state is NO_MATCH
+    - response clearly says no matching synthetic record was found
+    """
+    q = "Show me the profile of Rahul Banerjee"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    
+    # 1. State must be NO_MATCH
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    
+    # 2. No person profile returned
+    assert len(res.persons) == 0
+    
+    # 3. No fabricated case returned
+    assert len(res.cases) == 0
+    
+    # 4. No network relationships or priority info
+    assert len(res.network_relationships) == 0
+    assert res.priority_information is None
+    
+    # 5. Provenance must be empty
+    assert len(res.provenance) == 0
+    
+    # 6. Response clearly says no matching synthetic record was found
+    ans_lower = res.answer_markdown.lower()
+    assert "no matching person was found in the synthetic investigation dataset" in ans_lower
+    assert "rahul banerjee" in ans_lower
+    assert "no associated case records or investigative relationships are available" in ans_lower
+    
+    # 7. No fabricated address or phone in answer or payloads
+    assert "phone:" not in ans_lower
+    assert "address:" not in ans_lower
+    assert "fir number" not in ans_lower
+
+
+def test_22_exact_known_person_arjun_mehta(app_context):
+    """
+    Requirement 13 Test:
+    Query: 'Show me Arjun Mehta's profile'
+    Assert that existing PERSON-001 structured data is retrieved and returned correctly.
+    """
+    q = "Show me Arjun Mehta's profile"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    
+    assert res.response_state == AssistantResponseState.MATCH_FOUND
+    assert res.intent == AssistantIntent.PERSON_PROFILE
+    assert res.structured_query.person_id == "PERSON-001"
+    
+    # Verify retrieved structured records
+    assert len(res.persons) == 1
+    assert res.persons[0]["person_id"] == "PERSON-001"
+    assert res.persons[0]["full_name"] == "Arjun Mehta"
+    
+    # Associated cases retrieved
+    assert len(res.cases) == 4
+    case_ids = [c["case_id"] for c in res.cases]
+    assert "CASE-001" in case_ids
+    
+    # Provenance preserved
+    assert len(res.provenance) > 0
+    prov_source_ids = [p.source_id for p in res.provenance]
+    assert "PERSON-001" in prov_source_ids
+    assert "PERSON-001_CASE-001" in prov_source_ids
+
+
+def test_23_unknown_person_name_natural_queries(app_context):
+    """Test various natural language queries for unknown persons return NO_MATCH."""
+    queries = [
+        "Show Rahul Banerjee's profile",
+        "Tell me about John Anderson",
+        "What cases does XYZ have?",
+        "Show me the details of ABC"
+    ]
+    for q in queries:
+        res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+        assert res.response_state == AssistantResponseState.NO_MATCH
+        assert len(res.persons) == 0
+        assert len(res.cases) == 0
+        assert len(res.provenance) == 0
+        assert "no matching person was found in the synthetic investigation dataset" in res.answer_markdown.lower()
+
+
+def test_24_unknown_person_id(app_context):
+    """Test unknown person ID returns NO_MATCH without hallucinating."""
+    q = "Tell me about PERSON-999"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.persons) == 0
+    assert len(res.cases) == 0
+    assert "no matching person was found" in res.answer_markdown.lower()
+
+
+def test_25_unknown_case_id(app_context):
+    """Test unknown case ID returns NO_MATCH without hallucinating."""
+    q = "Show case details for CASE-999"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.cases) == 0
+    assert len(res.persons) == 0
+    assert "no matching case record was found" in res.answer_markdown.lower()
+    assert "CASE-999" in res.answer_markdown
+
+
+def test_26_unknown_phone_number(app_context):
+    """Test unknown phone number returns NO_MATCH without hallucinating."""
+    q = "Search phone +91 99999 99999"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.persons) == 0
+    assert "no matching phone record was found" in res.answer_markdown.lower()
+    assert "+91 99999 99999" in res.answer_markdown
+
+
+def test_27_unknown_vehicle(app_context):
+    """Test unknown vehicle returns NO_MATCH without hallucinating."""
+    q = "Find vehicle KA-05-9999"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.persons) == 0
+    assert "no matching vehicle record was found" in res.answer_markdown.lower()
+    assert "KA-05-9999" in res.answer_markdown
+
+
+def test_28_unknown_location(app_context):
+    """Test unknown location returns NO_MATCH without hallucinating."""
+    q = "Find cases in Atlantis"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.cases) == 0
+    assert "no matching location record was found" in res.answer_markdown.lower()
+    assert "Atlantis" in res.answer_markdown
+
+
+def test_29_unknown_organization(app_context):
+    """Test unknown organization returns NO_MATCH without hallucinating."""
+    q = "Search organization NonExistent Syndicate"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.persons) == 0
+    assert "no matching organization record was found" in res.answer_markdown.lower()
+    assert "NonExistent Syndicate" in res.answer_markdown
+
+
+def test_30_unknown_biometric(app_context):
+    """Test unknown biometric ID returns NO_MATCH without hallucinating."""
+    q = "Search biometric BIO-99999"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.NO_MATCH
+    assert len(res.persons) == 0
+    assert "no matching biometric record was found" in res.answer_markdown.lower()
+    assert "BIO-99999" in res.answer_markdown
+
+
+def test_31_ambiguous_person_name_never_guesses(app_context):
+    """Test ambiguous person name returns CLARIFICATION_REQUIRED with choices."""
+    q = "Tell me about Arjun"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.CLARIFICATION_REQUIRED
+    assert res.intent == AssistantIntent.CLARIFICATION_REQUIRED
+    assert len(res.candidates) > 1
+    assert "I found multiple matching people" in res.answer_markdown
+    assert "Which person would you like to inspect?" in res.answer_markdown
+    # Must list the candidates
+    cand_ids = [c.person_id for c in res.candidates]
+    assert "PERSON-001" in cand_ids
+    assert "PERSON-108" in cand_ids
+
+
+def test_32_partial_known_person(app_context):
+    """Test partial person queries succeed and resolve to known record."""
+    q1 = "What cases does Arjun Mehta have?"
+    res1 = process_assistant_query(q1, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res1.response_state == AssistantResponseState.MATCH_FOUND
+    assert res1.structured_query.person_id == "PERSON-001"
+    assert len(res1.cases) == 4
+
+    q2 = "Show me the details of Arjun Mehta"
+    res2 = process_assistant_query(q2, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res2.response_state == AssistantResponseState.MATCH_FOUND
+    assert res2.structured_query.person_id == "PERSON-001"
+    assert len(res2.persons) == 1
+
+
+def test_33_provenance_and_safety_preserved(app_context):
+    """Test provenance and safety notices are strictly preserved."""
+    q = "Show me Arjun Mehta's profile"
+    res = process_assistant_query(q, G=app_context["G"], analytics=app_context["analytics"], priority=app_context["priority"])
+    assert res.response_state == AssistantResponseState.MATCH_FOUND
+    assert len(res.provenance) > 0
+    assert "Synthetic demonstration data" in res.safety_notice or "SYNTHETIC DEMONSTRATION DATA" in res.safety_notice
+    assert "Analytical lead" in res.safety_notice or "analytical lead" in res.safety_notice.lower()
+    assert "human verification" in res.safety_notice.lower()
+
