@@ -34,6 +34,7 @@ export default function ChatMessage({ message, onSelectCandidate, onAskFollowup 
   const resp = message.response || {};
   const {
     intent,
+    response_state,
     structured_query,
     answer_markdown,
     provenance = [],
@@ -55,12 +56,24 @@ export default function ChatMessage({ message, onSelectCandidate, onAskFollowup 
       <div className="flex-1 space-y-3 min-w-0">
         <div className="p-4 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 shadow-sm space-y-3">
           {/* Header Bar with Intent & Filters */}
-          {intent && (
+          {(intent || response_state) && (
             <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800 text-xs">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-blue-950 text-blue-300 border border-blue-800">
-                  {intent}
-                </span>
+                {intent && (
+                  <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-blue-950 text-blue-300 border border-blue-800">
+                    {intent}
+                  </span>
+                )}
+                {response_state && (
+                  <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] border ${
+                    response_state === 'MATCH_FOUND' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
+                    response_state === 'NO_MATCH' ? 'bg-rose-950 text-rose-300 border-rose-800' :
+                    response_state === 'CLARIFICATION_REQUIRED' ? 'bg-amber-950 text-amber-300 border-amber-800' :
+                    'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}>
+                    {response_state}
+                  </span>
+                )}
                 {structured_query?.offence && (
                   <span className="text-[11px] text-slate-400">
                     Offence: <strong className="text-slate-200">{structured_query.offence}</strong>
