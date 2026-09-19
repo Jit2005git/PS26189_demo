@@ -7,6 +7,9 @@ import networkx as nx
 from modules.graph.dataset_integration import build_dataset_graph, get_case_inventory
 from modules.analytics.graph_analytics import analyze_graph
 from modules.priority.priority_scorer import calculate_priority_scores
+from modules.auth.demo_users import get_demo_user_repository
+from modules.auth.tokens import TokenStore
+from modules.auth.citizen_access import create_demo_citizen_access_repository
 from api.routes import router as api_router
 
 @asynccontextmanager
@@ -31,6 +34,12 @@ async def lifespan(app: FastAPI):
     priority = calculate_priority_scores(G, analytics)
     app.state.priority = priority
     
+    # 5. Initialize authentication store and citizen access repository
+    print("Building application context: Initializing authentication repository & token store...")
+    app.state.user_repo = get_demo_user_repository()
+    app.state.token_store = TokenStore()
+    app.state.citizen_access_repo = create_demo_citizen_access_repository()
+    
     print("Application context fully initialized. API ready.")
     yield
     # Clean up resources if necessary
@@ -38,6 +47,10 @@ async def lifespan(app: FastAPI):
     app.state.graph = nx.MultiDiGraph()
     app.state.analytics = {}
     app.state.priority = []
+    if hasattr(app.state, "token_store") and app.state.token_store:
+        app.state.token_store.clear()
+    if hasattr(app.state, "citizen_access_repo") and app.state.citizen_access_repo:
+        app.state.citizen_access_repo.clear()
 
 app = FastAPI(
     title="Investigation Intelligence API",
@@ -45,6 +58,13 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Initialize fallback state on app immediately for test isolation
+app.state.user_repo = get_demo_user_repository()
+app.state.token_store = TokenStore()
+app.state.citizen_access_repo = create_demo_citizen_access_repository()
+
+
 
 # CORS Configuration
 # Retain local development origins and allow external production frontend configuration via environment variables
