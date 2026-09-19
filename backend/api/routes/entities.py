@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
 import networkx as nx
-from api.dependencies import get_graph, get_analytics, get_priority
+from api.dependencies import get_graph, get_analytics, get_priority, require_permission
+from modules.auth.permissions import Permission
 from api.models import Entity, Edge, DuplicateCheckRequest, DuplicateCheckResponse
 from modules.entities.person_service import (
     get_person_profile, 
@@ -14,7 +15,10 @@ from modules.cases.case_registration_service import (
     search_persons_for_linking
 )
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_permission(Permission.VIEW_PEOPLE, Permission.VIEW_NETWORK))]
+)
+
 
 @router.get("/persons", response_model=List[Dict[str, Any]])
 def get_persons(

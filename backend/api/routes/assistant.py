@@ -11,11 +11,15 @@ Exposes:
 from fastapi import APIRouter, Depends, HTTPException
 import networkx as nx
 
-from api.dependencies import get_graph, get_analytics, get_priority
+from api.dependencies import get_graph, get_analytics, get_priority, require_permission
+from modules.auth.permissions import Permission
 from modules.assistant.models import AssistantQueryRequest, AssistantQueryResponse
 from modules.assistant.assistant_service import process_assistant_query
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_permission(Permission.USE_AI_ASSISTANT))]
+)
+
 
 @router.post("/assistant/query", response_model=AssistantQueryResponse)
 def query_assistant(

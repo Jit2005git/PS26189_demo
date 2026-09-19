@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends
 import networkx as nx
-from api.dependencies import get_graph
+from api.dependencies import get_graph, require_permission
+from modules.auth.permissions import Permission
 from api.models import SearchResponse, SearchResult
 from modules.entities.person_service import list_persons_summary
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_permission(Permission.SEARCH_INVESTIGATION_DATA))]
+)
+
 
 @router.get("/search", response_model=SearchResponse)
 def search(q: str = "", G: nx.MultiDiGraph = Depends(get_graph)):

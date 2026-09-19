@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List, Dict, Any
 import networkx as nx
-from api.dependencies import get_graph, get_cases
+from api.dependencies import get_graph, get_cases, require_permission
+from modules.auth.permissions import Permission
 from api.models import Case, GraphResponse, Node, Edge, RegisterCaseRequest, RegisterCaseResponse
 from modules.graph.graph_builder import get_case_subgraph
 from modules.cases.case_service import (
@@ -18,7 +19,10 @@ from modules.cases.case_registration_service import (
 )
 from modules.persistence.runtime_store import get_next_case_id
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_permission(Permission.VIEW_ASSIGNED_CASES, Permission.VIEW_AUTHORIZED_CASES))]
+)
+
 
 @router.get("/cases", response_model=List[Case])
 def list_cases(

@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends
 from api.models import SummaryResponse
-from api.dependencies import get_graph, get_cases
+from api.dependencies import get_graph, get_cases, require_permission
+from modules.auth.permissions import Permission
 import networkx as nx
 from collections import defaultdict
 from typing import List
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_permission(Permission.VIEW_ANALYTICS, Permission.VIEW_AGGREGATED_ANALYTICS))]
+)
+
 
 @router.get("/summary", response_model=SummaryResponse)
 def get_summary(

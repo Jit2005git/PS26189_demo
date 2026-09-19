@@ -215,3 +215,65 @@ class DuplicateCheckResponse(BaseModel):
     matches: List[DuplicateCandidateMatch]
 
 
+# --- Phase 1 & 2: Authentication & User Models ---
+
+from modules.auth.roles import UserRole
+from modules.auth.models import User, UserPublic, UserCreate
+
+
+class LoginRequest(BaseModel):
+    """
+    Credentials submitted to POST /api/auth/login.
+    Role or user_id fields supplied by client are never used.
+    """
+    username: str
+    password: str
+
+    @classmethod
+    def validate_non_empty(cls, v: str, field_name: str) -> str:
+        if not isinstance(v, str) or not v.strip():
+            raise ValueError(f"{field_name} cannot be empty.")
+        return v.strip()
+
+
+class LoginResponse(BaseModel):
+    """
+    Successful authentication response with bearer session token.
+    Never exposes password_hash or plaintext password.
+    """
+    token: str
+    token_type: str = "bearer"
+    user: UserPublic
+
+
+class LogoutResponse(BaseModel):
+    """
+    Logout response confirming session token invalidation.
+    """
+    success: bool = True
+    message: str = "Successfully logged out."
+
+
+# --- Phase 4: Citizen Object-Level Authorization Models ---
+
+class CitizenSafeCaseItem(BaseModel):
+    """
+    Sanitized, citizen-facing case status information.
+    Excludes all internal investigative notes, networks, evidence, suspects, and priority scores.
+    """
+    case_id: str
+    case_title: str
+    offence_category: str
+    fir_number: Optional[str] = None
+    date_opened: Optional[str] = None
+    status: str
+    police_station: str
+    district: str
+    state: str
+    official_notice: str = "Authorized citizen case inquiry record. For queries, contact your local police station."
+    authorized_for_user: str
+
+
+
+
+

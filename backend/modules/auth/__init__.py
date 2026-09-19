@@ -1,0 +1,62 @@
+"""
+auth
+====
+Authentication data models, role definitions, security primitives, and user store.
+"""
+
+from .roles import UserRole, ROLE_METADATA, validate_role
+from .security import hash_password, verify_password, parse_hash_string
+from .models import User, UserPublic, UserCreate
+from .repository import UserRepository
+from .tokens import TokenSession, TokenStore
+from .demo_users import (
+    DEMO_CREDENTIALS,
+    DEMO_USER_DEFINITIONS,
+    create_demo_users,
+    get_demo_user_repository
+)
+
+from .permissions import (
+    Permission,
+    ROLE_PERMISSIONS,
+    has_permission,
+    get_role_permissions,
+    check_role_has_any_permission,
+)
+from .citizen_access import (
+    CitizenCaseAccess,
+    CitizenAccessRepository,
+    DEMO_CITIZEN_AUTHORIZED_CASES,
+    create_demo_citizen_access_repository,
+)
+
+__all__ = [
+    "UserRole",
+    "ROLE_METADATA",
+    "validate_role",
+    "hash_password",
+    "verify_password",
+    "parse_hash_string",
+    "User",
+    "UserPublic",
+    "UserCreate",
+    "UserRepository",
+    "TokenSession",
+    "TokenStore",
+    "DEMO_CREDENTIALS",
+    "DEMO_USER_DEFINITIONS",
+    "create_demo_users",
+    "get_demo_user_repository",
+    "Permission",
+    "ROLE_PERMISSIONS",
+    "has_permission",
+    "get_role_permissions",
+    "check_role_has_any_permission",
+    "CitizenCaseAccess",
+    "CitizenAccessRepository",
+    "DEMO_CITIZEN_AUTHORIZED_CASES",
+    "create_demo_citizen_access_repository",
+]
+
+
+
