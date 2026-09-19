@@ -1,37 +1,23 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, FolderOpen, Users, Search, Network, 
-  BarChart3, AlertTriangle, Bot, ShieldCheck, Activity
-} from 'lucide-react';
-
-const NAV_SECTIONS = [
-  {
-    title: 'OVERVIEW',
-    items: [
-      { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: 'INVESTIGATION',
-    items: [
-      { name: 'Cases', path: '/cases', icon: FolderOpen },
-      { name: 'People', path: '/entities', icon: Users },
-      { name: 'Advanced Search', path: '/search', icon: Search },
-      { name: 'Network', path: '/network', icon: Network },
-      { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-      { name: 'Priority Leads', path: '/priority', icon: AlertTriangle },
-    ],
-  },
-  {
-    title: 'AI & INTELLIGENCE',
-    items: [
-      { name: 'Investigation Assistant', path: '/assistant', icon: Bot },
-    ],
-  },
-];
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext';
+import { getNavigationForRole, ROLE_DISPLAY_NAMES, ROLE_BADGE_COLORS } from '../../auth/roleNavigation';
+import { Activity, LogOut, User } from 'lucide-react';
 
 export default function Sidebar() {
+  const { currentUser, role, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // Obtain role-specific navigation manifest
+  const navSections = getNavigationForRole(role);
+  const roleLabel = (role && ROLE_DISPLAY_NAMES[role]) || 'USER';
+  const roleBadge = (role && ROLE_BADGE_COLORS[role]) || 'bg-slate-800 text-slate-400';
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <aside className="w-64 bg-slate-950 text-slate-300 flex flex-col h-full border-r border-slate-800/80 shrink-0 select-none">
       {/* Platform Branding */}
@@ -51,7 +37,7 @@ export default function Sidebar() {
 
       {/* Navigation Sections */}
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
-        {NAV_SECTIONS.map((section) => (
+        {navSections.map((section) => (
           <div key={section.title} className="space-y-1">
             <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-400 tracking-wider uppercase">
               {section.title}
@@ -76,13 +62,38 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer Info */}
-      <div className="p-4 border-t border-slate-800/70 bg-slate-950/60 text-[11px] text-slate-400 flex items-center justify-between">
-        <span className="font-mono text-[10px]">v1.2.0 • PROTOTYPE</span>
-        <span className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-semibold">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          ACTIVE
-        </span>
+      {/* User Status & Sign Out Footer */}
+      <div className="p-3 border-t border-slate-800/70 bg-slate-950/90 text-xs space-y-2">
+        {currentUser && (
+          <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+            <div className="overflow-hidden mr-2">
+              <div className="text-xs font-bold text-slate-200 truncate">
+                {currentUser.display_name?.split(' ')[0] || currentUser.username}
+              </div>
+              <div className="text-[9px] font-mono text-slate-400 truncate">
+                {currentUser.jurisdiction || roleLabel}
+              </div>
+            </div>
+            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border uppercase font-semibold shrink-0 ${roleBadge}`}>
+              {roleLabel.split(' ')[0]}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+          <button
+            onClick={handleLogout}
+            className="text-[11px] text-slate-400 hover:text-rose-400 font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <LogOut size={13} />
+            <span>Sign Out</span>
+          </button>
+          
+          <span className="flex items-center gap-1.5 text-emerald-400 text-[10px] font-semibold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            ACTIVE
+          </span>
+        </div>
       </div>
     </aside>
   );
