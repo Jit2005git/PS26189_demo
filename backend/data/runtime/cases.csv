@@ -1,2 +1,3 @@
 case_id,case_title,offence_category,legal_section,fir_number,date_opened,description,status,police_station,district,state,location_id,created_at,created_by
 CASE-251,Raipur Illegal Distribution Case,Extortion,Not Specified,,2026-09-01,Synthesized test case within Raipur district jurisdiction,OPEN,Civil Lines PS,Raipur,Chhattisgarh,,2026-09-20T13:06:08.484390,prototype-user
+CASE-252,Raipur Illegal Distribution Case,Extortion,Not Specified,,2026-09-01,Synthesized test case within Raipur district jurisdiction,OPEN,Civil Lines PS,Raipur,Chhattisgarh,,2026-09-20T13:07:18.140223,prototype-user
