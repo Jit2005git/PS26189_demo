@@ -63,6 +63,8 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
     },
     UserRole.IPS_OFFICER: {
         Permission.VIEW_AUTHORIZED_CASES,
+        Permission.CREATE_CASE,
+        Permission.UPDATE_CASE,
         Permission.VIEW_PEOPLE,
         Permission.VIEW_NETWORK,
         Permission.SEARCH_INVESTIGATION_DATA,

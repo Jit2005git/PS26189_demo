@@ -33,16 +33,36 @@ http_bearer_scheme = HTTPBearer(auto_error=False)
 
 # --- Existing Investigation Context Dependencies ---
 
+def _ensure_dataset_loaded(app):
+    if not hasattr(app.state, "cases") or not app.state.cases:
+        from modules.graph.dataset_integration import build_dataset_graph, get_case_inventory
+        from modules.analytics.graph_analytics import analyze_graph
+        from modules.priority.priority_scorer import calculate_priority_scores
+
+        cases = get_case_inventory()
+        G = build_dataset_graph()
+        analytics = analyze_graph(G)
+        priority = calculate_priority_scores(G, analytics)
+
+        app.state.cases = cases
+        app.state.graph = G
+        app.state.analytics = analytics
+        app.state.priority = priority
+
 def get_graph(request: Request):
+    _ensure_dataset_loaded(request.app)
     return request.app.state.graph
 
 def get_analytics(request: Request):
+    _ensure_dataset_loaded(request.app)
     return request.app.state.analytics
 
 def get_priority(request: Request):
+    _ensure_dataset_loaded(request.app)
     return request.app.state.priority
 
 def get_cases(request: Request):
+    _ensure_dataset_loaded(request.app)
     return request.app.state.cases
 
 

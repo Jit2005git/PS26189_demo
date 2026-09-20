@@ -31,7 +31,8 @@ from modules.entities.person_service import get_person_profile
 from modules.cases.case_service import (
     get_case_record, 
     get_case_associated_persons, 
-    get_case_related_cases_details
+    get_case_related_cases_details,
+    _load_and_index_dataset
 )
 
 
