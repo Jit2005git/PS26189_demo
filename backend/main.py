@@ -10,6 +10,7 @@ from modules.priority.priority_scorer import calculate_priority_scores
 from modules.auth.demo_users import get_demo_user_repository
 from modules.auth.tokens import TokenStore
 from modules.auth.citizen_access import create_demo_citizen_access_repository
+from modules.auth.investigation_access import create_demo_investigation_access_repository
 from api.routes import router as api_router
 
 @asynccontextmanager
@@ -34,11 +35,12 @@ async def lifespan(app: FastAPI):
     priority = calculate_priority_scores(G, analytics)
     app.state.priority = priority
     
-    # 5. Initialize authentication store and citizen access repository
-    print("Building application context: Initializing authentication repository & token store...")
+    # 5. Initialize authentication store, citizen access repository, and investigation access repository
+    print("Building application context: Initializing authentication repository, token store & investigation access...")
     app.state.user_repo = get_demo_user_repository()
     app.state.token_store = TokenStore()
     app.state.citizen_access_repo = create_demo_citizen_access_repository()
+    app.state.investigation_access_repo = create_demo_investigation_access_repository()
     
     print("Application context fully initialized. API ready.")
     yield
@@ -51,6 +53,8 @@ async def lifespan(app: FastAPI):
         app.state.token_store.clear()
     if hasattr(app.state, "citizen_access_repo") and app.state.citizen_access_repo:
         app.state.citizen_access_repo.clear()
+    if hasattr(app.state, "investigation_access_repo") and app.state.investigation_access_repo:
+        app.state.investigation_access_repo.clear()
 
 app = FastAPI(
     title="Investigation Intelligence API",
@@ -63,6 +67,7 @@ app = FastAPI(
 app.state.user_repo = get_demo_user_repository()
 app.state.token_store = TokenStore()
 app.state.citizen_access_repo = create_demo_citizen_access_repository()
+app.state.investigation_access_repo = create_demo_investigation_access_repo = create_demo_investigation_access_repository()
 
 
 

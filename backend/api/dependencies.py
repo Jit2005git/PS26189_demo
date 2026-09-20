@@ -4,7 +4,7 @@ dependencies.py
 FastAPI shared dependency injections for dataset context and authentication.
 """
 
-from typing import Optional
+from typing import Optional, Any, List, Set, Dict
 from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -15,13 +15,19 @@ from modules.auth.repository import UserRepository
 from modules.auth.tokens import TokenStore
 from modules.auth.demo_users import get_demo_user_repository
 from modules.auth.citizen_access import CitizenAccessRepository, create_demo_citizen_access_repository
+from modules.auth.investigation_access import (
+    InvestigationAccessRepository,
+    create_demo_investigation_access_repository,
+)
 
 # Module-level singletons used as robust fallbacks
 _default_user_repo = get_demo_user_repository()
 _default_token_store = TokenStore()
 _default_citizen_access_repo = create_demo_citizen_access_repository()
+_default_investigation_access_repo = create_demo_investigation_access_repository()
 
 http_bearer_scheme = HTTPBearer(auto_error=False)
+
 
 
 
@@ -232,5 +238,126 @@ def require_citizen_case_access(
         )
 
     return matching_case
+ 
+ 
+# --- Investigation-Level Authorization Dependencies (IO & IPS) ---
+
+def get_investigation_access_repo(request: Request) -> InvestigationAccessRepository:
+    """
+    Retrieves the active InvestigationAccessRepository from application state,
+    falling back to module singleton if uninitialized.
+    """
+    if hasattr(request.app.state, "investigation_access_repo") and request.app.state.investigation_access_repo is not None:
+        return request.app.state.investigation_access_repo
+    return _default_investigation_access_repo
+
+
+def get_officer_authorized_case_ids(
+    current_user: User = Depends(require_permission(Permission.VIEW_ASSIGNED_CASES, Permission.VIEW_AUTHORIZED_CASES)),
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    cases: list = Depends(get_cases)
+) -> set:
+    """
+    Resolves the precise set of Case IDs for which the authenticated officer has
+    full operational investigation authority:
+    - IPS_OFFICER: All cases in their supervisory state jurisdiction.
+    - INVESTIGATING_OFFICER: Active case assignments within their territorial jurisdiction.
+    """
+    return inv_repo.get_authorized_case_ids_for_officer(
+        user_id=current_user.user_id,
+        user_role=current_user.role.value,
+        all_cases=cases
+    )
+
+
+def require_investigation_case_access(
+    case_id: str,
+    current_user: User = Depends(require_permission(Permission.VIEW_ASSIGNED_CASES, Permission.VIEW_AUTHORIZED_CASES)),
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    cases: list = Depends(get_cases)
+) -> dict:
+    """
+    Object-level authorization dependency for Case dossiers:
+    1. Verifies case exists in system inventory (404 if not found).
+    2. Validates territorial jurisdiction (403 if outside jurisdiction).
+    3. For IO: Enforces active case assignment (Need-to-Know) (403 if unassigned).
+    4. For IPS: Validates supervisory state jurisdiction (403 if outside state).
+    5. Returns case record if authorized.
+    """
+    clean_case_id = case_id.strip().upper()
+
+    # 1. Verify case exists in system inventory
+    matching_case = None
+    for c in cases:
+        cid = c.get("case_id") or c.get("id")
+        if cid and str(cid).strip().upper() == clean_case_id:
+            matching_case = c
+            break
+
+    if not matching_case:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Case record '{case_id}' not found."
+        )
+
+    # 2. Enforce territorial jurisdiction
+    in_jurisdiction = inv_repo.is_case_in_jurisdiction(current_user.user_id, matching_case)
+    if not in_jurisdiction:
+        scope = inv_repo.get_jurisdiction(current_user.user_id)
+        level_label = scope.level.value if scope else "assigned"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: Case '{clean_case_id}' is outside your {level_label.lower()} jurisdiction."
+        )
+
+    # 3. For IO: Enforce active case assignment (Need-to-Know)
+    if current_user.role == UserRole.INVESTIGATING_OFFICER:
+        if not inv_repo.is_case_assigned(current_user.user_id, clean_case_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access restricted: Need-to-know authorization required. Case '{clean_case_id}' is not assigned to you."
+            )
+
+    return matching_case
+
+
+def is_entity_in_authorized_scope(
+    entity_id: str,
+    authorized_case_ids: set,
+    G: Any,
+    persons_by_id: dict = None,
+    scope: Any = None
+) -> bool:
+    """
+    Determines if an entity (PERSON, PHONE, VEHICLE, BANK_ACCOUNT, etc.) is
+    accessible to an officer:
+    1. If entity has relationships with an authorized case -> True.
+    2. If entity is a PERSON residing in the officer's jurisdiction -> True.
+    3. Otherwise -> False.
+    """
+    if not entity_id:
+        return False
+
+    clean_id = entity_id.strip()
+
+    # Check graph edge case connections
+    if G is not None and clean_id in G:
+        for _, _, _, d in G.in_edges(clean_id, data=True, keys=True):
+            cid = (d.get("case_id") or "").strip().upper()
+            if cid in authorized_case_ids:
+                return True
+        for _, _, _, d in G.out_edges(clean_id, data=True, keys=True):
+            cid = (d.get("case_id") or "").strip().upper()
+            if cid in authorized_case_ids:
+                return True
+
+    # Check person location within jurisdiction
+    if persons_by_id and clean_id in persons_by_id and scope:
+        p = persons_by_id[clean_id]
+        if scope.covers_person(p):
+            return True
+
+    return False
+
 
 

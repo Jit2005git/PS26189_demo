@@ -6,6 +6,7 @@ import {
   Loader2, FolderPlus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext';
 
 const OFFENCE_COLORS = {
   'Cyber Crime': 'bg-purple-950/80 text-purple-300 border-purple-500/40',
@@ -20,6 +21,7 @@ const OFFENCE_COLORS = {
 
 export default function CaseExplorer({ cases = [], loading = false, error = null, onSelectCase }) {
   const navigate = useNavigate();
+  const { currentUser, role } = useAuth();
 
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -183,6 +185,33 @@ export default function CaseExplorer({ cases = [], loading = false, error = null
           </div>
         </div>
       </div>
+
+      {/* Officer Jurisdiction & Need-to-Know Scope Banner */}
+      {currentUser && (role === 'INVESTIGATING_OFFICER' || role === 'IPS_OFFICER') && (
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+            <span className="text-slate-400 font-medium">Jurisdiction Scope:</span>
+            <span className="text-slate-100 font-bold font-mono bg-slate-800 px-2.5 py-0.5 rounded border border-slate-700">
+              {currentUser.jurisdiction || 'Configured Jurisdiction'}
+            </span>
+            <span className="text-slate-400 text-[11px]">({currentUser.jurisdiction_level || 'REGIONAL'})</span>
+          </div>
+
+          {role === 'INVESTIGATING_OFFICER' && (
+            <div className="flex items-center gap-2 text-[11px] text-slate-300">
+              <span className="text-slate-400">Need-to-Know Authorization:</span>
+              <span className="px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 font-bold">
+                {cases.filter(c => c.is_assigned || c.details?.is_assigned).length} Actively Assigned
+              </span>
+              <span className="text-slate-500">•</span>
+              <span className="px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-800/80 font-bold">
+                {cases.filter(c => c.is_assigned === false || c.details?.is_assigned === false).length} Unassigned In-District
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2. KPI Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -466,15 +495,36 @@ export default function CaseExplorer({ cases = [], loading = false, error = null
                         </div>
                       </td>
 
-                      {/* Column 5: Status */}
+                      {/* Column 5: Status & Assignment */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded uppercase border ${
-                          isClosed 
-                            ? 'bg-slate-800 text-slate-400 border-slate-700' 
-                            : 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                        }`}>
-                          {d.status || 'ACTIVE'}
-                        </span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded uppercase border ${
+                            isClosed 
+                              ? 'bg-slate-800 text-slate-400 border-slate-700' 
+                              : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                          }`}>
+                            {d.status || 'ACTIVE'}
+                          </span>
+
+                          {role === 'INVESTIGATING_OFFICER' && (
+                            c.is_assigned === false || d.is_assigned === false ? (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/80">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                UNASSIGNED
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/80">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                ASSIGNED
+                              </span>
+                            )
+                          )}
+                          {role === 'IPS_OFFICER' && (
+                            <span className="inline-flex items-center gap-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/80">
+                              SUPERVISORY
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Column 6: Action */}

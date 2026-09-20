@@ -17,7 +17,7 @@ Demo Users:
 4. hm.demo      -> HOME_MINISTRY
 """
 
-from typing import List, Dict
+from typing import List, Dict, Any
 from .roles import UserRole
 from .models import User
 from .security import hash_password
@@ -34,13 +34,15 @@ DEMO_CREDENTIALS: Dict[str, str] = {
 }
 
 
-DEMO_USER_DEFINITIONS: List[Dict[str, str]] = [
+DEMO_USER_DEFINITIONS: List[Dict[str, Any]] = [
     {
         "user_id": "usr_demo_citizen",
         "username": "citizen.demo",
         "role": UserRole.CITIZEN.value,
         "display_name": "Demo Citizen (Citizen Portal)",
         "jurisdiction": None,
+        "jurisdiction_level": None,
+        "assigned_cases": [],
         "raw_password": DEMO_CREDENTIALS["citizen.demo"],
     },
     {
@@ -49,6 +51,8 @@ DEMO_USER_DEFINITIONS: List[Dict[str, str]] = [
         "role": UserRole.INVESTIGATING_OFFICER.value,
         "display_name": "Demo Investigating Officer (Raipur Sub-Division)",
         "jurisdiction": "Raipur District",
+        "jurisdiction_level": "DISTRICT",
+        "assigned_cases": ["CASE-001", "CASE-002", "CASE-003"],
         "raw_password": DEMO_CREDENTIALS["io.demo"],
     },
     {
@@ -57,6 +61,8 @@ DEMO_USER_DEFINITIONS: List[Dict[str, str]] = [
         "role": UserRole.IPS_OFFICER.value,
         "display_name": "Demo IPS Officer (State Supervisory HQ)",
         "jurisdiction": "Chhattisgarh State",
+        "jurisdiction_level": "STATE",
+        "assigned_cases": [],
         "raw_password": DEMO_CREDENTIALS["ips.demo"],
     },
     {
@@ -65,6 +71,8 @@ DEMO_USER_DEFINITIONS: List[Dict[str, str]] = [
         "role": UserRole.HOME_MINISTRY.value,
         "display_name": "Demo Home Ministry Officer (National Oversight)",
         "jurisdiction": "National / Central",
+        "jurisdiction_level": "NATIONAL",
+        "assigned_cases": [],
         "raw_password": DEMO_CREDENTIALS["hm.demo"],
     },
 ]
@@ -84,10 +92,13 @@ def create_demo_users() -> List[User]:
             display_name=definition["display_name"],
             active=True,
             jurisdiction=definition["jurisdiction"],
+            jurisdiction_level=definition.get("jurisdiction_level"),
+            assigned_cases=definition.get("assigned_cases") or [],
             metadata={"is_demo": True, "environment": "development"}
         )
         users.append(user)
     return users
+
 
 
 def get_demo_user_repository() -> UserRepository:

@@ -246,9 +246,16 @@ export default function Header() {
               <div className="text-xs font-bold text-slate-200 leading-tight truncate max-w-[130px]">
                 {currentUser.display_name?.split(' ')[0] || currentUser.username}
               </div>
-              <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase font-semibold ${roleBadge}`}>
-                {roleLabel}
-              </span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase font-semibold ${roleBadge}`}>
+                  {roleLabel}
+                </span>
+                {currentUser.jurisdiction && (
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-700/60 text-slate-300 border border-slate-600/50 truncate max-w-[110px]" title={`Jurisdiction: ${currentUser.jurisdiction}`}>
+                    {currentUser.jurisdiction}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -75,16 +75,41 @@ export default function CaseDetails({ caseId, onBack, onSelectCase }) {
   }
 
   if (error || !data) {
+    const isForbidden = error && (
+      error.toLowerCase().includes('restricted') ||
+      error.toLowerCase().includes('need-to-know') ||
+      error.toLowerCase().includes('jurisdiction') ||
+      error.toLowerCase().includes('assigned') ||
+      error.toLowerCase().includes('unassigned')
+    );
+
     return (
-      <div className="p-10 bg-slate-900 rounded-xl border border-red-900/50 text-center space-y-4">
-        <AlertCircle size={36} className="mx-auto text-red-400" />
-        <div>
-          <h3 className="text-base font-bold text-slate-100">Unable to load case details</h3>
-          <p className="text-xs text-slate-400 mt-1">{error || 'Case record not found in system.'}</p>
+      <div className={`p-10 bg-slate-900 rounded-xl border ${isForbidden ? 'border-amber-700/60 bg-slate-900/95' : 'border-red-900/50'} text-center space-y-4 max-w-2xl mx-auto my-8 shadow-2xl`}>
+        {isForbidden ? (
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+            <ShieldAlert size={36} />
+          </div>
+        ) : (
+          <AlertCircle size={36} className="mx-auto text-red-400" />
+        )}
+        
+        <div className="space-y-2">
+          <h3 className="text-lg font-bold text-slate-100">
+            {isForbidden ? 'Access Restricted: Need-to-Know Authorization Required' : 'Unable to Load Case Details'}
+          </h3>
+          <p className="text-xs text-slate-300 font-mono bg-slate-950/80 p-3 rounded-lg border border-slate-800 leading-relaxed text-left">
+            {error || 'Case record not found in system or access could not be authorized.'}
+          </p>
+          {isForbidden && (
+            <p className="text-[11px] text-slate-400">
+              Pursuant to investigation security protocols, full case dossiers, suspect rosters, and evidence graphs are restricted exclusively to actively assigned Investigating Officers and state supervisory authorities.
+            </p>
+          )}
         </div>
+
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors"
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-lg cursor-pointer"
         >
           <ArrowLeft size={14} /> Return to Case Explorer
         </button>

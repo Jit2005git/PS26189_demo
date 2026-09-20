@@ -53,6 +53,11 @@ def process_assistant_query(
     # Step 1: Query Understanding & Intent Parsing
     query = parse_investigator_query(question, llm_client=llm_client, context=context)
 
+    # Authorization constraints from context (if provided)
+    auth_cases_list = context.get("authorized_case_ids") if context else None
+    authorized_case_ids = {c.strip().upper() for c in auth_cases_list} if auth_cases_list is not None else None
+    user_jurisdiction = context.get("jurisdiction") if context else None
+
     # Step 2: Deterministic Execution
     execution_result: Dict[str, Any] = {}
     persons_payload = []
@@ -106,7 +111,26 @@ def process_assistant_query(
                 "limit": 50
             }
             res = advanced_search(search_req)
-            persons_payload = res.get("persons", [])
+            raw_persons = res.get("persons", [])
+
+            # Apply server-side authorization filter to retrieval
+            if authorized_case_ids is not None:
+                cache = _load_and_index_dataset()
+                cases_by_person = cache.get("cases_by_person", {})
+                persons_payload = []
+                for p in raw_persons:
+                    pid = p.person_id if hasattr(p, "person_id") else p.get("person_id", "")
+                    linked = cases_by_person.get(pid, [])
+                    if any(cid.strip().upper() in authorized_case_ids for cid in linked):
+                        persons_payload.append(p)
+                    elif user_jurisdiction and user_jurisdiction.get("district"):
+                        p_dist = (p.district if hasattr(p, "district") else p.get("district", "")).lower().replace(" district", "")
+                        u_dist = user_jurisdiction.get("district", "").lower().replace(" district", "")
+                        if p_dist == u_dist:
+                            persons_payload.append(p)
+            else:
+                persons_payload = raw_persons
+
             execution_result["persons"] = persons_payload
             if len(persons_payload) > 0:
                 response_state = AssistantResponseState.MATCH_FOUND
@@ -130,45 +154,58 @@ def process_assistant_query(
 
     # Handle CASE_SEARCH
     elif query.intent == AssistantIntent.CASE_SEARCH:
-        search_req = {
-            "mode": "CASE",
-            "case_id": query.case_id,
-            "offence": query.offence,
-            "location": query.location,
-            "district": query.district,
-            "status": query.status,
-            "year": query.year,
-            "limit": 50
-        }
-        res = advanced_search(search_req)
-        cases_payload = res.get("cases", [])
-        execution_result["cases"] = cases_payload
-        if len(cases_payload) > 0:
-            response_state = AssistantResponseState.MATCH_FOUND
-        else:
+        # Prompt injection protection: If specifically requesting an unauthorized case ID -> NO_MATCH immediately
+        if query.case_id and authorized_case_ids is not None and query.case_id.strip().upper() not in authorized_case_ids:
             response_state = AssistantResponseState.NO_MATCH
-            if query.location:
-                execution_result["no_match_entity_type"] = "location"
-                execution_result["no_match_target"] = query.location
-            elif query.case_id:
-                execution_result["no_match_entity_type"] = "case"
-                execution_result["no_match_target"] = query.case_id
+            execution_result["no_match_entity_type"] = "case"
+            execution_result["no_match_target"] = f"{query.case_id} (Access restricted: Case is outside your authorized scope)"
+            cases_payload = []
+        else:
+            search_req = {
+                "mode": "CASE",
+                "case_id": query.case_id,
+                "offence": query.offence,
+                "location": query.location,
+                "district": query.district,
+                "status": query.status,
+                "year": query.year,
+                "limit": 50
+            }
+            res = advanced_search(search_req)
+            raw_cases = res.get("cases", [])
+            if authorized_case_ids is not None:
+                cases_payload = [
+                    c for c in raw_cases
+                    if (c.case_id if hasattr(c, "case_id") else c.get("case_id", "")).strip().upper() in authorized_case_ids
+                ]
             else:
-                execution_result["no_match_entity_type"] = "case"
-                execution_result["no_match_target"] = "specified filter criteria"
+                cases_payload = raw_cases
+
+            execution_result["cases"] = cases_payload
+            if len(cases_payload) > 0:
+                response_state = AssistantResponseState.MATCH_FOUND
+            else:
+                response_state = AssistantResponseState.NO_MATCH
+                if query.location:
+                    execution_result["no_match_entity_type"] = "location"
+                    execution_result["no_match_target"] = query.location
+                elif query.case_id:
+                    execution_result["no_match_entity_type"] = "case"
+                    execution_result["no_match_target"] = query.case_id
+                else:
+                    execution_result["no_match_entity_type"] = "case"
+                    execution_result["no_match_target"] = "specified filter criteria"
 
     # Handle PERSON_PROFILE
     elif query.intent == AssistantIntent.PERSON_PROFILE:
         pid = query.person_id
         profile = None
-        if pid:
-            profile = get_person_profile(pid, G=G, analytics=analytics, priority=priority)
-        elif query.person_name:
+
+        if not pid and query.person_name:
             cands = _find_person_candidates(query.person_name)
             if len(cands) == 1:
                 pid = cands[0]["person_id"]
                 query.person_id = pid
-                profile = get_person_profile(pid, G=G, analytics=analytics, priority=priority)
             elif len(cands) > 1:
                 query.intent = AssistantIntent.CLARIFICATION_REQUIRED
                 response_state = AssistantResponseState.CLARIFICATION_REQUIRED
@@ -184,6 +221,24 @@ def process_assistant_query(
                     for c in cands
                 ]
                 execution_result["candidates"] = candidates_payload
+
+        # Check authorization before retrieving profile
+        if pid and authorized_case_ids is not None:
+            cache = _load_and_index_dataset()
+            linked = cache.get("cases_by_person", {}).get(pid, [])
+            p_data = cache.get("persons_by_id", {}).get(pid, {})
+            is_auth = any(cid.strip().upper() in authorized_case_ids for cid in linked)
+            if not is_auth and user_jurisdiction and user_jurisdiction.get("district"):
+                if user_jurisdiction.get("district", "").lower().replace(" district", "") == (p_data.get("district") or "").lower().replace(" district", ""):
+                    is_auth = True
+            if not is_auth:
+                response_state = AssistantResponseState.NO_MATCH
+                execution_result["no_match_entity_type"] = "person"
+                execution_result["no_match_target"] = f"{query.person_name or pid} (Access restricted: Entity is outside your authorized scope)"
+                pid = None
+
+        if pid:
+            profile = get_person_profile(pid, G=G, analytics=analytics, priority=priority)
 
         if profile:
             response_state = AssistantResponseState.MATCH_FOUND
@@ -208,40 +263,66 @@ def process_assistant_query(
     # Handle CASE_DETAILS
     elif query.intent == AssistantIntent.CASE_DETAILS:
         cid = query.case_id
-        case_rec = get_case_record(cid) if cid else None
-        execution_result["case"] = case_rec
-        if case_rec:
-            response_state = AssistantResponseState.MATCH_FOUND
-            persons_in_case = get_case_associated_persons(cid)
-            execution_result["associated_persons"] = persons_in_case
-            cases_payload = [{
-                "case_id": cid,
-                "title": case_rec.get("case_title") or case_rec.get("title"),
-                "offence_category": case_rec.get("offence_category"),
-                "status": case_rec.get("status")
-            }]
-            persons_payload = [
-                {
-                    "person_id": p["person_id"],
-                    "full_name": p["full_name"],
-                    "role_in_case": p.get("role", "ASSOCIATE")
-                }
-                for p in persons_in_case
-            ]
-        else:
+        # Strict authorization check on case dossier retrieval
+        if cid and authorized_case_ids is not None and cid.strip().upper() not in authorized_case_ids:
             response_state = AssistantResponseState.NO_MATCH
             execution_result["no_match_entity_type"] = "case"
-            execution_result["no_match_target"] = cid or "Requested Case"
+            execution_result["no_match_target"] = f"{cid} (Access restricted: You are not authorized to view this case dossier)"
             cases_payload = []
             persons_payload = []
+        else:
+            case_rec = get_case_record(cid) if cid else None
+            execution_result["case"] = case_rec
+            if case_rec:
+                response_state = AssistantResponseState.MATCH_FOUND
+                persons_in_case = get_case_associated_persons(cid)
+                execution_result["associated_persons"] = persons_in_case
+                cases_payload = [{
+                    "case_id": cid,
+                    "title": case_rec.get("case_title") or case_rec.get("title"),
+                    "offence_category": case_rec.get("offence_category"),
+                    "status": case_rec.get("status")
+                }]
+                persons_payload = [
+                    {
+                        "person_id": p["person_id"],
+                        "full_name": p["full_name"],
+                        "role_in_case": p.get("role", "ASSOCIATE")
+                    }
+                    for p in persons_in_case
+                ]
+            else:
+                response_state = AssistantResponseState.NO_MATCH
+                execution_result["no_match_entity_type"] = "case"
+                execution_result["no_match_target"] = cid or "Requested Case"
+                cases_payload = []
+                persons_payload = []
 
     # Handle NETWORK_QUERY
     elif query.intent == AssistantIntent.NETWORK_QUERY:
         pid = query.person_id
-        profile = get_person_profile(pid, G=G, analytics=analytics, priority=priority) if pid else None
+        is_auth = True
+        if pid and authorized_case_ids is not None:
+            cache = _load_and_index_dataset()
+            linked = cache.get("cases_by_person", {}).get(pid, [])
+            p_data = cache.get("persons_by_id", {}).get(pid, {})
+            is_auth = any(cid.strip().upper() in authorized_case_ids for cid in linked)
+            if not is_auth and user_jurisdiction and user_jurisdiction.get("district"):
+                if user_jurisdiction.get("district", "").lower().replace(" district", "") == (p_data.get("district") or "").lower().replace(" district", ""):
+                    is_auth = True
+
+        profile = get_person_profile(pid, G=G, analytics=analytics, priority=priority) if (pid and is_auth) else None
         if profile:
             response_state = AssistantResponseState.MATCH_FOUND
-            relationships_payload = profile.get("evidence_relationships", [])
+            raw_rels = profile.get("evidence_relationships", [])
+            # Prune relationships to authorized cases
+            if authorized_case_ids is not None:
+                relationships_payload = [
+                    r for r in raw_rels
+                    if (r.get("case_id") or "").strip().upper() in authorized_case_ids
+                ]
+            else:
+                relationships_payload = raw_rels
             execution_result["relationships"] = relationships_payload
             persons_payload = [{
                 "person_id": profile["entity_id"],
@@ -258,7 +339,12 @@ def process_assistant_query(
     # Handle RELATED_CASES
     elif query.intent == AssistantIntent.RELATED_CASES:
         cid = query.case_id
-        if cid:
+        if cid and authorized_case_ids is not None and cid.strip().upper() not in authorized_case_ids:
+            response_state = AssistantResponseState.NO_MATCH
+            execution_result["no_match_entity_type"] = "case"
+            execution_result["no_match_target"] = f"{cid} (Access restricted: Source case is outside your authorized scope)"
+            cases_payload = []
+        elif cid:
             related_cases = get_case_related_cases_details(cid, G=G)
             execution_result["related_cases"] = related_cases
             cases_payload = related_cases
@@ -272,6 +358,7 @@ def process_assistant_query(
                     execution_result["no_match_target"] = cid
                 else:
                     response_state = AssistantResponseState.ANSWER
+
 
     # Handle PRIORITY_EXPLANATION
     elif query.intent == AssistantIntent.PRIORITY_EXPLANATION:

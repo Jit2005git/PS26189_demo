@@ -10,12 +10,22 @@ Analytics API routes with RBAC protection.
 - /analytics/entities/{entity_id}: Entity-level analytics (IO, IPS only)
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
-from api.dependencies import get_analytics, require_permission
+from api.dependencies import (
+    get_analytics,
+    get_cases,
+    get_graph,
+    require_permission,
+    get_investigation_access_repo,
+)
+from modules.auth.models import User
 from modules.auth.permissions import Permission
+from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.cases.case_service import _load_and_index_dataset
 
 router = APIRouter()
+
 
 
 @router.get(
@@ -34,16 +44,54 @@ def get_all_analytics(analytics: dict = Depends(get_analytics)):
     "/analytics/cross-case",
     dependencies=[Depends(require_permission(Permission.VIEW_CROSS_CASE_ANALYTICS))]
 )
-def get_cross_case_analytics(analytics: dict = Depends(get_analytics)):
+def get_cross_case_analytics(
+    current_user: User = Depends(require_permission(Permission.VIEW_CROSS_CASE_ANALYTICS)),
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    inventory: list = Depends(get_cases),
+    analytics: dict = Depends(get_analytics)
+):
     """
     Multi-case connectivity patterns and bridging entities.
     Accessible strictly to IPS_OFFICER supervisory tier.
+    Scoped to cases within officer's state supervisory jurisdiction.
     """
+    authorized_case_ids = inv_repo.get_authorized_case_ids_for_officer(
+        current_user.user_id,
+        current_user.role.value,
+        inventory
+    )
+
+    raw_conn = analytics.get("cross_case_connectivity", [])
+    filtered_conn = []
+    for item in raw_conn:
+        c1 = (item.get("case_1") or item.get("case_id_1") or "").strip().upper()
+        c2 = (item.get("case_2") or item.get("case_id_2") or "").strip().upper()
+        # At least one case must be within the officer's authorized state scope
+        if (c1 and c1 in authorized_case_ids) or (c2 and c2 in authorized_case_ids):
+            # If one is external, indicate cross-state connection
+            entry = dict(item)
+            if c1 and c1 not in authorized_case_ids:
+                entry["case_1_external"] = True
+                entry["case_1_notice"] = "External State Case"
+            if c2 and c2 not in authorized_case_ids:
+                entry["case_2_external"] = True
+                entry["case_2_notice"] = "External State Case"
+            filtered_conn.append(entry)
+
+    raw_bridging = analytics.get("community_bridging", [])
+    filtered_bridging = []
+    for b in raw_bridging:
+        # Check if bridging entity touches an authorized case
+        b_cases = [c.strip().upper() for c in b.get("connected_cases", [])]
+        if not b_cases or any(c in authorized_case_ids for c in b_cases):
+            filtered_bridging.append(b)
+
     return {
-        "cross_case_connectivity": analytics.get("cross_case_connectivity", []),
-        "community_bridging": analytics.get("community_bridging", []),
+        "cross_case_connectivity": filtered_conn,
+        "community_bridging": filtered_bridging,
         "communities_count": len(analytics.get("communities", [])),
     }
+
 
 
 @router.get(
@@ -107,12 +155,56 @@ def generate_reports(analytics: dict = Depends(get_analytics)):
     "/analytics/entities/{entity_id}",
     dependencies=[Depends(require_permission(Permission.VIEW_ANALYTICS))]
 )
-def get_entity_analytics(entity_id: str, analytics: dict = Depends(get_analytics)):
+def get_entity_analytics(
+    entity_id: str,
+    current_user: User = Depends(require_permission(Permission.VIEW_ANALYTICS)),
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    inventory: list = Depends(get_cases),
+    G = Depends(get_graph),
+    analytics: dict = Depends(get_analytics)
+):
     """
     Entity-specific graph metrics.
     Restricted to field investigators and supervisory officers (IO, IPS).
     Denied to HOME_MINISTRY and CITIZEN.
+    Scoped to authorized investigation scope.
     """
+    clean_id = entity_id.strip()
+    cache = _load_and_index_dataset()
+    persons_by_id = cache.get("persons_by_id", {})
+    cases_by_person = cache.get("cases_by_person", {})
+
+    scope = inv_repo.get_jurisdiction(current_user.user_id)
+    authorized_case_ids = inv_repo.get_authorized_case_ids_for_officer(
+        current_user.user_id,
+        current_user.role.value,
+        inventory
+    )
+
+    # Check authorization
+    is_auth = False
+    linked = cases_by_person.get(clean_id, [])
+    if any(cid.strip().upper() in authorized_case_ids for cid in linked):
+        is_auth = True
+    elif clean_id in persons_by_id and scope and scope.covers_person(persons_by_id[clean_id]):
+        is_auth = True
+    elif G is not None and clean_id in G:
+        for _, _, _, ed in G.in_edges(clean_id, data=True, keys=True):
+            if (ed.get("case_id") or "").strip().upper() in authorized_case_ids:
+                is_auth = True
+                break
+        if not is_auth:
+            for _, _, _, ed in G.out_edges(clean_id, data=True, keys=True):
+                if (ed.get("case_id") or "").strip().upper() in authorized_case_ids:
+                    is_auth = True
+                    break
+
+    if not is_auth:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: Analytics for entity '{clean_id}' requires authorized case or jurisdiction scope."
+        )
+
     entity_analytics = {}
     found = False
 
@@ -150,3 +242,4 @@ def get_entity_analytics(entity_id: str, analytics: dict = Depends(get_analytics
         raise HTTPException(status_code=404, detail="Analytics for entity not found")
 
     return entity_analytics
+

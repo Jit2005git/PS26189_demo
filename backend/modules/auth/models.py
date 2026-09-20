@@ -15,7 +15,7 @@ Required fields:
 
 from datetime import datetime, timezone
 import re
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from .roles import UserRole, validate_role
@@ -39,6 +39,8 @@ class User(BaseModel):
     display_name: str = Field(..., description="Human-readable display name for the user.")
     active: bool = Field(default=True, description="Indicates whether the account is currently active.")
     jurisdiction: Optional[str] = Field(default=None, description="Operational jurisdiction or geographical scope.")
+    jurisdiction_level: Optional[str] = Field(default=None, description="Scope level: DISTRICT, STATE, NATIONAL.")
+    assigned_cases: Optional[List[str]] = Field(default_factory=list, description="Active assigned case IDs.")
     created_at: Optional[str] = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat(),
         description="ISO 8601 UTC creation timestamp."
@@ -99,6 +101,7 @@ class User(BaseModel):
         """
         Converts the User model to a safe public representation without credentials.
         """
+        assigned = self.assigned_cases or []
         return UserPublic(
             user_id=self.user_id,
             username=self.username,
@@ -106,6 +109,9 @@ class User(BaseModel):
             display_name=self.display_name,
             active=self.active,
             jurisdiction=self.jurisdiction,
+            jurisdiction_level=self.jurisdiction_level,
+            assigned_cases=assigned,
+            assigned_cases_count=len(assigned),
             created_at=self.created_at
         )
 
@@ -123,6 +129,9 @@ class UserPublic(BaseModel):
     display_name: str
     active: bool
     jurisdiction: Optional[str] = None
+    jurisdiction_level: Optional[str] = None
+    assigned_cases: Optional[List[str]] = None
+    assigned_cases_count: Optional[int] = 0
     created_at: Optional[str] = None
 
 
@@ -140,7 +149,10 @@ class UserCreate(BaseModel):
     display_name: str
     active: bool = True
     jurisdiction: Optional[str] = None
+    jurisdiction_level: Optional[str] = None
+    assigned_cases: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
+
 
     @field_validator("password")
     @classmethod

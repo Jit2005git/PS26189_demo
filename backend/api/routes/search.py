@@ -1,7 +1,16 @@
 from fastapi import APIRouter, Depends
+from typing import List
 import networkx as nx
-from api.dependencies import get_graph, require_permission
+from api.dependencies import (
+    get_graph,
+    get_cases,
+    require_permission,
+    get_investigation_access_repo,
+)
+from modules.auth.models import User
 from modules.auth.permissions import Permission
+from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.cases.case_service import _load_and_index_dataset
 from api.models import SearchResponse, SearchResult
 from modules.entities.person_service import list_persons_summary
 
@@ -11,65 +20,164 @@ router = APIRouter(
 
 
 @router.get("/search", response_model=SearchResponse)
-def search(q: str = "", G: nx.MultiDiGraph = Depends(get_graph)):
+def search(
+    q: str = "",
+    current_user: User = Depends(require_permission(Permission.SEARCH_INVESTIGATION_DATA)),
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    inventory: List = Depends(get_cases),
+    G: nx.MultiDiGraph = Depends(get_graph)
+):
     if not q:
         return SearchResponse(results=[])
-        
+
+    scope = inv_repo.get_jurisdiction(current_user.user_id)
+    authorized_case_ids = inv_repo.get_authorized_case_ids_for_officer(
+        current_user.user_id,
+        current_user.role.value,
+        inventory
+    )
+    jurisdiction_case_ids = inv_repo.get_jurisdiction_case_ids(
+        current_user.user_id,
+        inventory
+    )
+    cache = _load_and_index_dataset()
+    persons_by_id = cache.get("persons_by_id", {})
+    cases_by_person = cache.get("cases_by_person", {})
+
     query = q.lower().strip()
     results = []
     seen_ids = set()
-    
-    # 1. Search NetworkX graph nodes
+
+    # 1. Search NetworkX graph nodes with server-side authorization check
     for n, d in G.nodes(data=True):
         node_id = str(n).lower()
         original_value = str(d.get("value", "")).lower()
         normalized_value = str(d.get("normalized_value", "")).lower()
-        
+
         if query in node_id or query in original_value or query in normalized_value:
             node_type = d.get("type", "UNKNOWN")
-            match_type = "case" if node_type in ("CASE", "CASE_ID") else "entity"
-            
-            seen_ids.add(n)
-            results.append(SearchResult(
-                id=n,
-                type=node_type,
-                label=d.get("value") or n,
-                match_type=match_type
-            ))
+            raw_node_id = str(n)
 
-    # 2. Search synthetic person registry
-    matching_persons = list_persons_summary(search=query, limit=20)
+            # Check authorization for this node
+            is_auth = False
+            if node_type in ("CASE", "CASE_ID"):
+                match_type = "case"
+                if raw_node_id.upper() in jurisdiction_case_ids:
+                    is_auth = True
+            else:
+                match_type = "entity"
+                linked = cases_by_person.get(raw_node_id, [])
+                if any(cid.strip().upper() in authorized_case_ids for cid in linked):
+                    is_auth = True
+                elif raw_node_id in persons_by_id and scope and scope.covers_person(persons_by_id[raw_node_id]):
+                    is_auth = True
+                else:
+                    for _, _, _, ed in G.in_edges(raw_node_id, data=True, keys=True):
+                        if (ed.get("case_id") or "").strip().upper() in authorized_case_ids:
+                            is_auth = True
+                            break
+                    if not is_auth:
+                        for _, _, _, ed in G.out_edges(raw_node_id, data=True, keys=True):
+                            if (ed.get("case_id") or "").strip().upper() in authorized_case_ids:
+                                is_auth = True
+                                break
+
+            if is_auth and n not in seen_ids:
+                seen_ids.add(n)
+                results.append(SearchResult(
+                    id=n,
+                    type=node_type,
+                    label=d.get("value") or n,
+                    match_type=match_type
+                ))
+
+    # 2. Search synthetic person registry scoped to authorization
+    matching_persons = list_persons_summary(search=query, limit=50)
     for p in matching_persons:
         pid = p["person_id"]
         if pid not in seen_ids:
-            seen_ids.add(pid)
-            label = p["full_name"]
-            if p.get("primary_alias"):
-                label += f' ("{p["primary_alias"]}")'
-            results.append(SearchResult(
-                id=pid,
-                type="PERSON",
-                label=label,
-                match_type="entity"
-            ))
-            
+            linked = cases_by_person.get(pid, [])
+            is_auth = False
+            if any(cid.strip().upper() in authorized_case_ids for cid in linked):
+                is_auth = True
+            elif scope and scope.covers_person(p):
+                is_auth = True
+
+            if is_auth:
+                seen_ids.add(pid)
+                label = p["full_name"]
+                if p.get("primary_alias"):
+                    label += f' ("{p["primary_alias"]}")'
+                results.append(SearchResult(
+                    id=pid,
+                    type="PERSON",
+                    label=label,
+                    match_type="entity"
+                ))
+
     # Sort for deterministic output
     results.sort(key=lambda x: (x.match_type, x.id))
-    return SearchResponse(results=results)
+    return SearchResponse(results=results[:30])
 
 
 # --- Step 20: Advanced Search & Investigation Filtering Endpoints ---
 from api.models import AdvancedSearchRequest, AdvancedSearchResponse
 from modules.search.search_service import advanced_search, get_search_metadata
 
+
 @router.post("/search/advanced", response_model=AdvancedSearchResponse)
-def run_advanced_search(payload: AdvancedSearchRequest):
+def run_advanced_search(
+    payload: AdvancedSearchRequest,
+    current_user: User = Depends(require_permission(Permission.SEARCH_INVESTIGATION_DATA)),
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    inventory: List = Depends(get_cases)
+):
     """
     Step 20: Advanced deterministic search & investigation filtering.
-    Evaluates multi-criteria structured filters across persons and cases.
+    Applies authorization BEFORE returning search results.
     """
+    scope = inv_repo.get_jurisdiction(current_user.user_id)
+    authorized_case_ids = inv_repo.get_authorized_case_ids_for_officer(
+        current_user.user_id,
+        current_user.role.value,
+        inventory
+    )
+    jurisdiction_case_ids = inv_repo.get_jurisdiction_case_ids(
+        current_user.user_id,
+        inventory
+    )
+    cache = _load_and_index_dataset()
+    persons_by_id = cache.get("persons_by_id", {})
+    cases_by_person = cache.get("cases_by_person", {})
+
     res = advanced_search(payload.model_dump())
-    return AdvancedSearchResponse(**res)
+
+    # Filter cases: only within jurisdiction
+    filtered_cases = []
+    for c in res.get("cases", []):
+        cid = (c.case_id if hasattr(c, "case_id") else c.get("case_id", "")).strip().upper()
+        if cid in jurisdiction_case_ids:
+            filtered_cases.append(c)
+
+    # Filter persons: only connected to authorized cases or in jurisdiction
+    filtered_persons = []
+    for p in res.get("persons", []):
+        pid = p.person_id if hasattr(p, "person_id") else p.get("person_id", "")
+        linked = cases_by_person.get(pid, [])
+        if any(cid.strip().upper() in authorized_case_ids for cid in linked):
+            filtered_persons.append(p)
+        elif pid in persons_by_id and scope and scope.covers_person(persons_by_id[pid]):
+            filtered_persons.append(p)
+
+    return AdvancedSearchResponse(
+        mode=res.get("mode", payload.mode or "ALL"),
+        total_persons=len(filtered_persons),
+        total_cases=len(filtered_cases),
+        total_results=len(filtered_persons) + len(filtered_cases),
+        persons=filtered_persons,
+        cases=filtered_cases,
+        safety_notice=res.get("safety_notice", "Analytical lead only. Requires human verification.")
+    )
 
 
 @router.get("/search/metadata")
@@ -79,5 +187,6 @@ def get_filter_metadata():
     for advanced search dropdowns directly from indexed dataset.
     """
     return get_search_metadata()
+
 
 

@@ -29,6 +29,14 @@ from .citizen_access import (
     DEMO_CITIZEN_AUTHORIZED_CASES,
     create_demo_citizen_access_repository,
 )
+from .investigation_access import (
+    JurisdictionLevel,
+    JurisdictionScope,
+    OfficerCaseAssignment,
+    InvestigationAccessRepository,
+    DEMO_IO_ASSIGNED_CASES,
+    create_demo_investigation_access_repository,
+)
 
 __all__ = [
     "UserRole",
@@ -56,7 +64,14 @@ __all__ = [
     "CitizenAccessRepository",
     "DEMO_CITIZEN_AUTHORIZED_CASES",
     "create_demo_citizen_access_repository",
+    "JurisdictionLevel",
+    "JurisdictionScope",
+    "OfficerCaseAssignment",
+    "InvestigationAccessRepository",
+    "DEMO_IO_ASSIGNED_CASES",
+    "create_demo_investigation_access_repository",
 ]
+
 
 
 
