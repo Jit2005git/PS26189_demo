@@ -100,6 +100,7 @@ export function getNavigationForRole(role) {
           items: [
             { name: 'Cross-Case Intelligence', path: '/supervisory/cross-case', icon: GitMerge },
             { name: 'Executive Reports', path: '/supervisory/reports', icon: FileText },
+            { name: 'Audit & Compliance', path: '/audit', icon: ShieldCheck },
           ]
         },
         {
@@ -137,6 +138,7 @@ export function getNavigationForRole(role) {
             { name: 'Strategic Trends', path: '/ministry/trends', icon: TrendingUp },
             { name: 'Regional Statistics', path: '/ministry/regional', icon: Globe },
             { name: 'Strategic Reports', path: '/ministry/reports', icon: FileText },
+            { name: 'Audit & Compliance', path: '/audit', icon: ShieldCheck },
           ]
         },
         {

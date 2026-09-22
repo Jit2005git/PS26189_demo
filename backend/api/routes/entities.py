@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from typing import List, Optional, Dict, Any
 import networkx as nx
 from api.dependencies import (
@@ -8,10 +8,13 @@ from api.dependencies import (
     get_priority,
     require_permission,
     get_investigation_access_repo,
+    get_audit_repo,
 )
 from modules.auth.models import User
 from modules.auth.permissions import Permission
 from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_service import log_entity_view
 from api.models import Entity, Edge, DuplicateCheckRequest, DuplicateCheckResponse
 from modules.entities.person_service import (
     get_person_profile, 
@@ -228,8 +231,10 @@ def list_entities(
 @router.get("/entities/{entity_id}")
 def get_entity_details(
     entity_id: str,
+    request: Request,
     current_user: User = Depends(require_permission(Permission.VIEW_PEOPLE, Permission.VIEW_NETWORK)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     inventory: List = Depends(get_cases),
     G: nx.MultiDiGraph = Depends(get_graph),
     analytics: dict = Depends(get_analytics),
@@ -253,6 +258,7 @@ def get_entity_details(
                 if (c.get("case_id") or "").strip().upper() in authorized_case_ids
             ]
             person_profile["associated_cases_count"] = len(person_profile["associated_cases"])
+        log_entity_view(audit_repo, current_user, entity_id, request, is_family=False, is_person=True)
         return person_profile
 
     # Fallback to general graph entity
@@ -281,6 +287,8 @@ def get_entity_details(
             entity_priority = p
             break
 
+    log_entity_view(audit_repo, current_user, entity_id, request, is_family=False, is_person=False)
+
     return {
         "entity_id": entity_id,
         "entity_type": entity_data.get("type", "UNKNOWN"),
@@ -295,8 +303,10 @@ def get_entity_details(
 @router.get("/entities/{entity_id}/family")
 def get_entity_family(
     entity_id: str,
+    request: Request,
     current_user: User = Depends(require_permission(Permission.VIEW_PEOPLE)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     inventory: List = Depends(get_cases),
     G: nx.MultiDiGraph = Depends(get_graph)
 ):
@@ -309,6 +319,8 @@ def get_entity_family(
     family_profile = get_person_family_profile(entity_id)
     if not family_profile:
         raise HTTPException(status_code=404, detail="Person not found or entity is not a person")
+
+    log_entity_view(audit_repo, current_user, entity_id, request, is_family=True, is_person=True)
     return family_profile
 
 

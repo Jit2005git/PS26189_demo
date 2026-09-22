@@ -10,7 +10,7 @@ Analytics API routes with RBAC protection.
 - /analytics/entities/{entity_id}: Entity-level analytics (IO, IPS only)
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from typing import Dict, Any
 from api.dependencies import (
     get_analytics,
@@ -18,10 +18,14 @@ from api.dependencies import (
     get_graph,
     require_permission,
     get_investigation_access_repo,
+    get_audit_repo,
 )
 from modules.auth.models import User
 from modules.auth.permissions import Permission
 from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_models import AuditEventType, AuditStatus
+from modules.auth.audit_service import create_event
 from modules.cases.case_service import _load_and_index_dataset
 
 router = APIRouter()
@@ -45,8 +49,10 @@ def get_all_analytics(analytics: dict = Depends(get_analytics)):
     dependencies=[Depends(require_permission(Permission.VIEW_CROSS_CASE_ANALYTICS))]
 )
 def get_cross_case_analytics(
+    request: Request,
     current_user: User = Depends(require_permission(Permission.VIEW_CROSS_CASE_ANALYTICS)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     inventory: list = Depends(get_cases),
     analytics: dict = Depends(get_analytics)
 ):
@@ -85,6 +91,19 @@ def get_cross_case_analytics(
         b_cases = [c.strip().upper() for c in b.get("connected_cases", [])]
         if not b_cases or any(c in authorized_case_ids for c in b_cases):
             filtered_bridging.append(b)
+
+    create_event(
+        repo=audit_repo,
+        event_type=AuditEventType.CROSS_CASE_ANALYTICS_VIEW,
+        action="VIEW_CROSS_CASE",
+        target_type="ANALYTICS",
+        target_id="CROSS_CASE",
+        user=current_user,
+        status=AuditStatus.SUCCESS,
+        status_code=200,
+        request=request,
+        details={"connectivity_count": len(filtered_conn), "bridging_count": len(filtered_bridging)}
+    )
 
     return {
         "cross_case_connectivity": filtered_conn,

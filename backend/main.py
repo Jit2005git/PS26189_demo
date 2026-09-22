@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import networkx as nx
@@ -11,6 +12,9 @@ from modules.auth.demo_users import get_demo_user_repository
 from modules.auth.tokens import TokenStore
 from modules.auth.citizen_access import create_demo_citizen_access_repository
 from modules.auth.investigation_access import create_demo_investigation_access_repository
+from modules.auth.audit_repository import create_demo_audit_repository
+from modules.auth.audit_service import log_unauthorized_access_denied
+from api.dependencies import extract_bearer_token
 from api.routes import router as api_router
 
 @asynccontextmanager
@@ -35,12 +39,13 @@ async def lifespan(app: FastAPI):
     priority = calculate_priority_scores(G, analytics)
     app.state.priority = priority
     
-    # 5. Initialize authentication store, citizen access repository, and investigation access repository
-    print("Building application context: Initializing authentication repository, token store & investigation access...")
+    # 5. Initialize authentication store, citizen access repository, investigation access repository & audit repository
+    print("Building application context: Initializing authentication repository, token store, investigation access & audit repository...")
     app.state.user_repo = get_demo_user_repository()
     app.state.token_store = TokenStore()
     app.state.citizen_access_repo = create_demo_citizen_access_repository()
     app.state.investigation_access_repo = create_demo_investigation_access_repository()
+    app.state.audit_repo = create_demo_audit_repository()
     
     print("Application context fully initialized. API ready.")
     yield
@@ -55,6 +60,8 @@ async def lifespan(app: FastAPI):
         app.state.citizen_access_repo.clear()
     if hasattr(app.state, "investigation_access_repo") and app.state.investigation_access_repo:
         app.state.investigation_access_repo.clear()
+    if hasattr(app.state, "audit_repo") and app.state.audit_repo:
+        app.state.audit_repo.clear()
 
 app = FastAPI(
     title="Investigation Intelligence API",
@@ -67,7 +74,66 @@ app = FastAPI(
 app.state.user_repo = get_demo_user_repository()
 app.state.token_store = TokenStore()
 app.state.citizen_access_repo = create_demo_citizen_access_repository()
-app.state.investigation_access_repo = create_demo_investigation_access_repo = create_demo_investigation_access_repository()
+app.state.investigation_access_repo = create_demo_investigation_access_repository()
+app.state.audit_repo = create_demo_audit_repository()
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_audit_handler(request: Request, exc: HTTPException):
+    """
+    Centralized exception handler to authoritatively capture 401 and 403 access denials.
+    Enforces the single-denial-event rule: exactly one event recorded per denied request.
+    """
+    if exc.status_code in (401, 403):
+        if not getattr(request.state, "audit_denial_recorded", False):
+            request.state.audit_denial_recorded = True
+            audit_repo = getattr(request.app.state, "audit_repo", None)
+            if audit_repo is not None:
+                # Attempt to resolve authenticated actor
+                user = None
+                token_store = getattr(request.app.state, "token_store", None)
+                user_repo = getattr(request.app.state, "user_repo", None)
+                token = extract_bearer_token(request)
+                if token and token_store and user_repo:
+                    session = token_store.get_session(token)
+                    if session:
+                        user = user_repo.get_by_id(session.user_id)
+
+                # Classify target object from path
+                path = request.url.path
+                target_type = "RESOURCE"
+                target_id = path
+                if "/cases/" in path:
+                    target_type = "CASE"
+                    parts = path.split("/cases/")
+                    if len(parts) > 1 and parts[1]:
+                        target_id = parts[1].split("/")[0]
+                elif "/entities/" in path:
+                    target_type = "PERSON" if ("family" in path or "PERSON" in path) else "ENTITY"
+                    parts = path.split("/entities/")
+                    if len(parts) > 1 and parts[1]:
+                        target_id = parts[1].split("/")[0]
+                elif "/citizen/" in path:
+                    target_type = "CITIZEN_PORTAL"
+                elif "/audit/" in path:
+                    target_type = "AUDIT_LOGS"
+                    target_id = "AUDIT_QUERY"
+
+                log_unauthorized_access_denied(
+                    repo=audit_repo,
+                    request=request,
+                    status_code=exc.status_code,
+                    reason=str(exc.detail),
+                    user=user,
+                    target_type=target_type,
+                    target_id=target_id
+                )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None)
+    )
 
 
 

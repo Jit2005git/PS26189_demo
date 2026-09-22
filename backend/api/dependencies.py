@@ -19,12 +19,17 @@ from modules.auth.investigation_access import (
     InvestigationAccessRepository,
     create_demo_investigation_access_repository,
 )
+from modules.auth.audit_repository import (
+    AuditLogRepository,
+    create_demo_audit_repository,
+)
 
 # Module-level singletons used as robust fallbacks
 _default_user_repo = get_demo_user_repository()
 _default_token_store = TokenStore()
 _default_citizen_access_repo = create_demo_citizen_access_repository()
 _default_investigation_access_repo = create_demo_investigation_access_repository()
+_default_audit_repo = create_demo_audit_repository()
 
 http_bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -270,6 +275,16 @@ def get_investigation_access_repo(request: Request) -> InvestigationAccessReposi
     if hasattr(request.app.state, "investigation_access_repo") and request.app.state.investigation_access_repo is not None:
         return request.app.state.investigation_access_repo
     return _default_investigation_access_repo
+
+
+def get_audit_repo(request: Request) -> AuditLogRepository:
+    """
+    Retrieves the active AuditLogRepository from application state,
+    falling back to module singleton if uninitialized.
+    """
+    if hasattr(request.app.state, "audit_repo") and request.app.state.audit_repo is not None:
+        return request.app.state.audit_repo
+    return _default_audit_repo
 
 
 def get_officer_authorized_case_ids(

@@ -10,11 +10,13 @@ from .search import router as search_router
 from .assistant import router as assistant_router
 from .auth import router as auth_router
 from .citizen import router as citizen_router
+from .audit import router as audit_router
 
 router = APIRouter()
 router.include_router(health_router, tags=["Health"])
 router.include_router(auth_router, tags=["Authentication"])
 router.include_router(citizen_router, tags=["Citizen Portal"])
+router.include_router(audit_router, tags=["Audit Logging"])
 router.include_router(summary_router, tags=["Summary"])
 router.include_router(cases_router, tags=["Cases"])
 router.include_router(entities_router, tags=["Entities"])

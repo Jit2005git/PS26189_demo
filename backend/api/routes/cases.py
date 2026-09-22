@@ -8,11 +8,14 @@ from api.dependencies import (
     get_investigation_access_repo,
     get_officer_authorized_case_ids,
     require_investigation_case_access,
+    get_audit_repo,
 )
 from modules.auth.roles import UserRole
 from modules.auth.models import User
 from modules.auth.permissions import Permission
 from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_service import log_case_view, log_case_register
 from api.models import Case, GraphResponse, Node, Edge, RegisterCaseRequest, RegisterCaseResponse
 from modules.graph.graph_builder import get_case_subgraph
 from modules.cases.case_service import (
@@ -118,7 +121,8 @@ def register_new_case_route(
     payload: RegisterCaseRequest,
     request: Request,
     current_user: User = Depends(require_permission(Permission.CREATE_CASE)),
-    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo)
+    inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo)
 ):
     """
     Step 27: Register New Case + Create / Link Person.
@@ -157,6 +161,8 @@ def register_new_case_route(
                 active=True,
                 metadata={"source": "registration_auto_assign"}
             )
+            # Record audit event for case registration
+            log_case_register(audit_repo, current_user, new_case_id, request)
         return result
     except ValidationError as ve:
         raise HTTPException(status_code=400, detail={"message": ve.message, "errors": ve.errors})
@@ -169,9 +175,11 @@ def register_new_case_route(
 @router.get("/cases/{case_id}")
 def get_case_details(
     case_id: str,
+    request: Request,
     case_row: dict = Depends(require_investigation_case_access),
     current_user: User = Depends(require_permission(Permission.VIEW_ASSIGNED_CASES, Permission.VIEW_AUTHORIZED_CASES)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     G: nx.MultiDiGraph = Depends(get_graph),
     inventory: List = Depends(get_cases)
 ):
@@ -243,6 +251,9 @@ def get_case_details(
     case_data["related_entities_count"] = related_entities.get("total_count", 0)
     case_data["evidence_count"] = len(relationships)
 
+    # Audit log successful dossier view
+    log_case_view(audit_repo, current_user, clean_case_id, request, is_graph=False)
+
     return {
         "case_id": clean_case_id,
         "details": case_data,
@@ -257,9 +268,11 @@ def get_case_details(
 @router.get("/cases/{case_id}/graph", response_model=GraphResponse)
 def get_case_graph(
     case_id: str,
+    request: Request,
     case_row: dict = Depends(require_investigation_case_access),
     current_user: User = Depends(require_permission(Permission.VIEW_ASSIGNED_CASES, Permission.VIEW_AUTHORIZED_CASES)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     G: nx.MultiDiGraph = Depends(get_graph),
     inventory: List = Depends(get_cases)
 ):
@@ -314,6 +327,9 @@ def get_case_graph(
                 label=d.get("value") or n,
                 type=d.get("type", "UNKNOWN")
             ))
+
+    # Log case graph view audit event
+    log_case_view(audit_repo, current_user, clean_case_id, request, is_graph=True)
 
     return GraphResponse(nodes=nodes, edges=edges)
 

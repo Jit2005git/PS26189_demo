@@ -37,6 +37,9 @@ class Permission(str, Enum):
     VIEW_CROSS_CASE_ANALYTICS = "VIEW_CROSS_CASE_ANALYTICS"
     GENERATE_REPORTS = "GENERATE_REPORTS"
 
+    # Audit logging permissions (Supervisory and Oversight)
+    VIEW_AUDIT_LOGS = "VIEW_AUDIT_LOGS"
+
     # Home Ministry permissions
     VIEW_AGGREGATED_ANALYTICS = "VIEW_AGGREGATED_ANALYTICS"
     VIEW_TRENDS = "VIEW_TRENDS"
@@ -73,12 +76,14 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[Permission]] = {
         Permission.VIEW_PRIORITY_LEADS,
         Permission.USE_AI_ASSISTANT,
         Permission.GENERATE_REPORTS,
+        Permission.VIEW_AUDIT_LOGS,
     },
     UserRole.HOME_MINISTRY: {
         Permission.VIEW_AGGREGATED_ANALYTICS,
         Permission.VIEW_TRENDS,
         Permission.VIEW_REGIONAL_STATISTICS,
         Permission.GENERATE_STRATEGIC_REPORTS,
+        Permission.VIEW_AUDIT_LOGS,
     },
 }
 

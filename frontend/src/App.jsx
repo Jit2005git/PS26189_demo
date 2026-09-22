@@ -27,6 +27,7 @@ import CitizenDashboardPage from './pages/citizen/CitizenDashboardPage';
 import CitizenCasesPage from './pages/citizen/CitizenCasesPage';
 import MinistryDashboardPage from './pages/ministry/MinistryDashboardPage';
 import SupervisoryAnalyticsPage from './pages/supervisory/SupervisoryAnalyticsPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 /**
  * Intelligent root redirect component based on backend-authenticated role.
@@ -138,6 +139,15 @@ export default function App() {
                 {/* Support direct legacy deep-links */}
                 <Route path="analytics/strategic-trends" element={<MinistryDashboardPage />} />
                 <Route path="analytics/regional-statistics" element={<MinistryDashboardPage />} />
+              </Route>
+
+              {/* ======================================================== */}
+              {/* AUDIT & COMPLIANCE LOG VIEWER                            */}
+              {/* Exclusively accessible to IPS_OFFICER and HOME_MINISTRY  */}
+              {/* ======================================================== */}
+              <Route element={<RoleRoute allowedRoles={[USER_ROLES.IPS_OFFICER, USER_ROLES.HOME_MINISTRY]} />}>
+                <Route path="audit" element={<AuditLogsPage />} />
+                <Route path="audit/logs" element={<AuditLogsPage />} />
               </Route>
 
               {/* Catch-all fallback */}

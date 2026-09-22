@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from typing import List
 import networkx as nx
 from api.dependencies import (
@@ -6,10 +6,13 @@ from api.dependencies import (
     get_cases,
     require_permission,
     get_investigation_access_repo,
+    get_audit_repo,
 )
 from modules.auth.models import User
 from modules.auth.permissions import Permission
 from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_service import log_search_query
 from modules.cases.case_service import _load_and_index_dataset
 from api.models import SearchResponse, SearchResult
 from modules.entities.person_service import list_persons_summary
@@ -21,9 +24,11 @@ router = APIRouter(
 
 @router.get("/search", response_model=SearchResponse)
 def search(
+    request: Request,
     q: str = "",
     current_user: User = Depends(require_permission(Permission.SEARCH_INVESTIGATION_DATA)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     inventory: List = Depends(get_cases),
     G: nx.MultiDiGraph = Depends(get_graph)
 ):
@@ -117,7 +122,20 @@ def search(
 
     # Sort for deterministic output
     results.sort(key=lambda x: (x.match_type, x.id))
-    return SearchResponse(results=results[:30])
+    final_results = results[:30]
+
+    # Audit log sanitized search execution (never raw query)
+    log_search_query(
+        audit_repo,
+        current_user,
+        request,
+        search_mode="SIMPLE",
+        filter_keys=["q"] if q else [],
+        query_length=len(q),
+        result_count=len(final_results)
+    )
+
+    return SearchResponse(results=final_results)
 
 
 # --- Step 20: Advanced Search & Investigation Filtering Endpoints ---
@@ -128,8 +146,10 @@ from modules.search.search_service import advanced_search, get_search_metadata
 @router.post("/search/advanced", response_model=AdvancedSearchResponse)
 def run_advanced_search(
     payload: AdvancedSearchRequest,
+    request: Request,
     current_user: User = Depends(require_permission(Permission.SEARCH_INVESTIGATION_DATA)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     inventory: List = Depends(get_cases)
 ):
     """
@@ -169,11 +189,25 @@ def run_advanced_search(
         elif pid in persons_by_id and scope and scope.covers_person(persons_by_id[pid]):
             filtered_persons.append(p)
 
+    total_results = len(filtered_persons) + len(filtered_cases)
+
+    # Audit log sanitized search execution (never raw query)
+    active_filters = [k for k, v in payload.model_dump().items() if v and k not in ("query", "name")]
+    log_search_query(
+        audit_repo,
+        current_user,
+        request,
+        search_mode=payload.mode or "ALL",
+        filter_keys=active_filters,
+        query_length=len(payload.query or "") + len(payload.name or ""),
+        result_count=total_results
+    )
+
     return AdvancedSearchResponse(
         mode=res.get("mode", payload.mode or "ALL"),
         total_persons=len(filtered_persons),
         total_cases=len(filtered_cases),
-        total_results=len(filtered_persons) + len(filtered_cases),
+        total_results=total_results,
         persons=filtered_persons,
         cases=filtered_cases,
         safety_notice=res.get("safety_notice", "Analytical lead only. Requires human verification.")

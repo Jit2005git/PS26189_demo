@@ -21,12 +21,19 @@ from api.models import LoginRequest, LoginResponse, LogoutResponse, UserPublic
 from api.dependencies import (
     get_user_repo,
     get_token_store,
+    get_audit_repo,
     require_authenticated_user,
     extract_bearer_token
 )
 from modules.auth.models import User
 from modules.auth.repository import UserRepository
 from modules.auth.tokens import TokenStore
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_service import (
+    log_auth_success,
+    log_auth_failure,
+    log_auth_logout
+)
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -40,8 +47,10 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 )
 def login(
     login_data: LoginRequest,
+    request: Request,
     user_repo: UserRepository = Depends(get_user_repo),
-    token_store: TokenStore = Depends(get_token_store)
+    token_store: TokenStore = Depends(get_token_store),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo)
 ):
     """
     Authenticates a user by username and password.
@@ -61,6 +70,7 @@ def login(
     user = user_repo.get_by_username(username)
     if not user:
         # Uniform 401 error avoids leaking username existence
+        log_auth_failure(audit_repo, username, request, reason="Invalid credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password.",
@@ -69,6 +79,7 @@ def login(
 
     # 2. Check active status
     if not user.active:
+        log_auth_failure(audit_repo, username, request, reason="Account inactive")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Account is inactive. Please contact an administrator.",
@@ -77,6 +88,7 @@ def login(
 
     # 3. Verify password hash using PBKDF2
     if not user.check_password(password):
+        log_auth_failure(audit_repo, username, request, reason="Invalid credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password.",
@@ -86,7 +98,10 @@ def login(
     # 4. Create secure authenticated session token
     session = token_store.create_token(user)
 
-    # 5. Return token and public projection (never password or hash)
+    # 5. Log successful authentication event
+    log_auth_success(audit_repo, user, request)
+
+    # 6. Return token and public projection (never password or hash)
     return LoginResponse(
         token=session.token,
         token_type="bearer",
@@ -120,7 +135,8 @@ def get_current_user_profile(
 def logout(
     request: Request,
     current_user: User = Depends(require_authenticated_user),
-    token_store: TokenStore = Depends(get_token_store)
+    token_store: TokenStore = Depends(get_token_store),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo)
 ):
     """
     Revokes the active bearer session token.
@@ -129,6 +145,9 @@ def logout(
     token = extract_bearer_token(request)
     if token:
         token_store.revoke_token(token)
+
+    # Record logout audit event
+    log_auth_logout(audit_repo, current_user, request)
 
     return LogoutResponse(
         success=True,

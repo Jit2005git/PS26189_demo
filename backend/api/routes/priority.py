@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from typing import List, Optional
 import networkx as nx
 from api.dependencies import (
@@ -7,10 +7,13 @@ from api.dependencies import (
     get_cases,
     require_permission,
     get_investigation_access_repo,
+    get_audit_repo,
 )
 from modules.auth.models import User
 from modules.auth.permissions import Permission
 from modules.auth.investigation_access import InvestigationAccessRepository
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_service import log_priority_view
 from modules.cases.case_service import _load_and_index_dataset
 from api.models import PriorityResult
 
@@ -21,11 +24,13 @@ router = APIRouter(
 
 @router.get("/priority", response_model=List[PriorityResult])
 def get_priority_scores(
+    request: Request,
     entity_type: Optional[str] = None,
     priority_level: Optional[str] = None,
     limit: Optional[int] = Query(100, ge=1),
     current_user: User = Depends(require_permission(Permission.VIEW_PRIORITY_LEADS)),
     inv_repo: InvestigationAccessRepository = Depends(get_investigation_access_repo),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo),
     inventory: List = Depends(get_cases),
     G: nx.MultiDiGraph = Depends(get_graph),
     priority: list = Depends(get_priority)
@@ -66,6 +71,9 @@ def get_priority_scores(
             results.append(p)
             if len(results) >= limit:
                 break
+
+    # Log priority view audit event
+    log_priority_view(audit_repo, current_user, request, lead_count=len(results))
 
     return results
 

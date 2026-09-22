@@ -37,6 +37,30 @@ from .investigation_access import (
     DEMO_IO_ASSIGNED_CASES,
     create_demo_investigation_access_repository,
 )
+from .audit_models import (
+    AuditStatus,
+    AuditEventType,
+    AuditEvent,
+    AuditLogQueryResponse,
+)
+from .audit_repository import (
+    AuditLogRepository,
+    create_demo_audit_repository,
+)
+from .audit_service import (
+    create_event,
+    log_auth_success,
+    log_auth_failure,
+    log_auth_logout,
+    log_case_view,
+    log_case_register,
+    log_entity_view,
+    log_search_query,
+    log_priority_view,
+    log_assistant_query,
+    log_citizen_case_view,
+    log_unauthorized_access_denied,
+)
 
 __all__ = [
     "UserRole",
@@ -70,6 +94,24 @@ __all__ = [
     "InvestigationAccessRepository",
     "DEMO_IO_ASSIGNED_CASES",
     "create_demo_investigation_access_repository",
+    "AuditStatus",
+    "AuditEventType",
+    "AuditEvent",
+    "AuditLogQueryResponse",
+    "AuditLogRepository",
+    "create_demo_audit_repository",
+    "create_event",
+    "log_auth_success",
+    "log_auth_failure",
+    "log_auth_logout",
+    "log_case_view",
+    "log_case_register",
+    "log_entity_view",
+    "log_search_query",
+    "log_priority_view",
+    "log_assistant_query",
+    "log_citizen_case_view",
+    "log_unauthorized_access_denied",
 ]
 
 

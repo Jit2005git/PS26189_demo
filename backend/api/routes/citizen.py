@@ -14,7 +14,7 @@ Security Rules:
 """
 
 from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from api.models import CitizenSafeCaseItem
 from api.dependencies import (
@@ -22,10 +22,13 @@ from api.dependencies import (
     require_role,
     get_citizen_access_repo,
     require_citizen_case_access,
+    get_audit_repo,
 )
 from modules.auth.roles import UserRole
 from modules.auth.models import User
 from modules.auth.citizen_access import CitizenAccessRepository
+from modules.auth.audit_repository import AuditLogRepository
+from modules.auth.audit_service import log_citizen_case_view
 
 router = APIRouter(prefix="/citizen", tags=["Citizen Portal"])
 
@@ -93,8 +96,10 @@ def list_citizen_authorized_cases(
 )
 def get_citizen_case_details(
     case_id: str,
+    request: Request,
     current_user: User = Depends(require_role(UserRole.CITIZEN)),
-    case_record: Dict[str, Any] = Depends(require_citizen_case_access)
+    case_record: Dict[str, Any] = Depends(require_citizen_case_access),
+    audit_repo: AuditLogRepository = Depends(get_audit_repo)
 ):
     """
     Object-level authorization endpoint:
@@ -104,4 +109,5 @@ def get_citizen_case_details(
     - 403 if case exists but citizen is not authorized for it
     - 200 with sanitized citizen-safe fields if authorized
     """
+    log_citizen_case_view(audit_repo, current_user, case_id.strip().upper(), request)
     return format_citizen_safe_case(case_record, current_user)
