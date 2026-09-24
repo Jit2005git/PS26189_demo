@@ -64,15 +64,17 @@ def build_dataset_graph():
     if comms:
         for row in comms:
             case_id = row.get("case_id", "")
-            texts_with_context.append((row.get("description", ""), case_id))
+            rec_id = row.get("communication_id", "")
+            texts_with_context.append((row.get("description", ""), case_id, rec_id))
             
     if txns:
         for row in txns:
             case_id = row.get("case_id", "")
-            texts_with_context.append((row.get("description", ""), case_id))
+            rec_id = row.get("transaction_id", "")
+            texts_with_context.append((row.get("description", ""), case_id, rec_id))
 
     # Process unstructured text records
-    for text, case_id in texts_with_context:
+    for text, case_id, rec_id in texts_with_context:
         if not text:
             continue
             
@@ -96,11 +98,15 @@ def build_dataset_graph():
         
         # 3. Predict confidence (Step 10) and add to graph (Step 11)
         for rel in rels:
+            if rec_id:
+                rel["record_ids"] = [rec_id]
             try:
                 conf_result = predict_confidence(rel)
                 rel["confidence"] = conf_result.get("relationship_confidence", 0.85)
+                rel["features"] = conf_result.get("features", {})
             except Exception:
                 rel["confidence"] = 0.85
+                rel["features"] = {}
                 
             add_relationship(G, rel)
 
@@ -110,6 +116,7 @@ def build_dataset_graph():
             if row.get("relationship_type") == "INVOLVED_IN" and row.get("evidence_reference") in ("cases.csv", "case_persons.csv"):
                 source = row.get("source_entity_id")
                 target = row.get("target_entity_id")
+                gt_id = row.get("ground_truth_id", "")
                 
                 # Ensure entities exist in the graph
                 add_entity(G, {"type": get_type_from_id(source), "value": source, "evidence": source, "source": "STRUCTURED_METADATA"})
@@ -123,15 +130,18 @@ def build_dataset_graph():
                     "relationship_type": "INVOLVED_IN",
                     "evidence": f"Structured metadata association from {ev_ref}",
                     "case_id": target if target.startswith("CASE") else source if source.startswith("CASE") else "",
-                    "detection_method": "STRUCTURED_METADATA"
+                    "detection_method": "STRUCTURED_METADATA",
+                    "record_ids": [gt_id] if gt_id else []
                 }
                 
                 # Still respect Step 10 confidence predictions for the edge
                 try:
                     conf_result = predict_confidence(rel)
                     rel["confidence"] = conf_result.get("relationship_confidence", 0.85)
+                    rel["features"] = conf_result.get("features", {})
                 except Exception:
                     rel["confidence"] = 0.85
+                    rel["features"] = {}
                     
                 add_relationship(G, rel)
 
@@ -141,6 +151,7 @@ def build_dataset_graph():
         cid = cp.get("case_id")
         pid = cp.get("person_id")
         role = cp.get("role", "SUBJECT")
+        cp_id = f"CP-{cid}-{pid}"
         if cid and pid:
             add_entity(G, {"type": "CASE_ID", "value": cid, "evidence": cid, "source": "STRUCTURED_METADATA", "confidence": 1.0})
             add_entity(G, {"type": "PERSON", "value": pid, "evidence": pid, "source": "STRUCTURED_METADATA", "confidence": 1.0})
@@ -152,7 +163,8 @@ def build_dataset_graph():
                     "evidence": f"Structured metadata association from case_persons.csv as {role}",
                     "case_id": cid,
                     "detection_method": "STRUCTURED_METADATA",
-                    "confidence": 1.0
+                    "confidence": 1.0,
+                    "record_ids": [cp_id]
                 })
             
     return G

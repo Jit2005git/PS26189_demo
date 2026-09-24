@@ -300,3 +300,29 @@ def log_unauthorized_access_denied(
         request=request,
         details={"reason": reason}
     )
+
+
+def log_provenance_edge_view(
+    repo: AuditLogRepository,
+    user: User,
+    request: Request,
+    edge_id: str,
+    case_id: str,
+    detection_method: str
+) -> AuditEvent:
+    return create_event(
+        repo=repo,
+        event_type=AuditEventType.PROVENANCE_EDGE_VIEW,
+        action="VIEW_EDGE_PROVENANCE",
+        target_type="GRAPH_EDGE",
+        target_id=edge_id,
+        user=user,
+        status=AuditStatus.SUCCESS,
+        status_code=200,
+        request=request,
+        details={
+            "case_id": case_id,
+            "detection_method": detection_method
+        }
+    )
+

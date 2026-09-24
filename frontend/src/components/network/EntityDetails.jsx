@@ -7,7 +7,7 @@
  * - Strictly non-accusatory terminology: "Associated Person", "Potential Relationship", "Analytical Lead"
  * - Does NOT calculate or alter confidence/priority
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   X, Info, ExternalLink, ShieldAlert, Crosshair, Users, 
   FolderOpen, Phone, Smartphone, CreditCard, Car, Building2, MapPin, 
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { resolveVisualType } from './graphIcons';
+import EvidenceProvenanceModal from '../provenance/EvidenceProvenanceModal';
 
 const TYPE_ICONS = {
   CASE: FolderOpen,
@@ -43,6 +44,8 @@ function ConfidenceBadge({ value }) {
 
 export default function EntityDetails({ selected, graphData, onClose, onCenterNode }) {
   const navigate = useNavigate();
+  const [provenanceOpen, setProvenanceOpen] = useState(false);
+
 
   // If nothing is selected, show Case Network Summary
   if (!selected) {
@@ -273,6 +276,15 @@ export default function EntityDetails({ selected, graphData, onClose, onCenterNo
             )}
           </div>
 
+          {/* Inspect Evidence Provenance Action */}
+          <button
+            onClick={() => setProvenanceOpen(true)}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-sm"
+          >
+            <FileText size={13} />
+            <span>Inspect Evidence Provenance</span>
+          </button>
+
           {/* Supporting Evidence Text */}
           <div>
             <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
@@ -304,9 +316,19 @@ export default function EntityDetails({ selected, graphData, onClose, onCenterNo
         <div className="p-3 border-t border-slate-800 bg-slate-900/40 text-[10px] text-amber-300/80">
           ⚠️ Potential relationship only. Human verification required.
         </div>
+
+        {/* Evidence Provenance Modal */}
+        <EvidenceProvenanceModal
+          isOpen={provenanceOpen}
+          onClose={() => setProvenanceOpen(false)}
+          sourceId={data.source}
+          targetId={data.target}
+          caseId={data.case_id}
+        />
       </div>
     );
   }
 
   return null;
 }
+

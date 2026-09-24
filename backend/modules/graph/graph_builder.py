@@ -82,6 +82,13 @@ def add_relationship(G: nx.MultiDiGraph, rel: dict):
                 if evidence not in existing_ev:
                     attr["evidence"] = existing_ev + " | " + evidence
                 attr["confidence"] = max(attr.get("confidence", 0.0), confidence)
+                if rel.get("features") and not attr.get("features"):
+                    attr["features"] = rel.get("features", {})
+                new_records = rel.get("record_ids", [])
+                existing_records = attr.setdefault("record_ids", [])
+                for rid in new_records:
+                    if rid and rid not in existing_records:
+                        existing_records.append(rid)
                 return
 
     # Create new edge
@@ -92,8 +99,11 @@ def add_relationship(G: nx.MultiDiGraph, rel: dict):
         confidence=confidence,
         evidence=evidence,
         case_id=case_id,
-        detection_method=det_method
+        detection_method=det_method,
+        features=rel.get("features", {}),
+        record_ids=list(rel.get("record_ids", []))
     )
+
 
 def get_entity(G: nx.MultiDiGraph, node_id: str):
     """Return the node attributes if it exists."""

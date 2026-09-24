@@ -1,9 +1,11 @@
-import React from 'react';
-import { Link2, ExternalLink, ArrowRight, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { Link2, ExternalLink, ArrowRight, ArrowLeft, FileText } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import EvidenceProvenanceModal from '../provenance/EvidenceProvenanceModal';
 
 export default function PersonEvidenceRelationships({ relationships = [], personId }) {
   const navigate = useNavigate();
+  const [activeProvenance, setActiveProvenance] = useState(null);
 
   return (
     <div className="space-y-4 select-none">
@@ -37,6 +39,7 @@ export default function PersonEvidenceRelationships({ relationships = [], person
                   <th className="py-2.5 px-3.5">Evidence Provenance</th>
                   <th className="py-2.5 px-3.5">Case Context</th>
                   <th className="py-2.5 px-3.5">Method</th>
+                  <th className="py-2.5 px-3.5 text-right">Provenance</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
@@ -119,6 +122,22 @@ export default function PersonEvidenceRelationships({ relationships = [], person
                       <td className="py-2.5 px-3.5 whitespace-nowrap text-[10px] font-mono text-slate-400">
                         {rel.detection_method || 'rule_based'}
                       </td>
+
+                      {/* Provenance Inspection Trigger */}
+                      <td className="py-2.5 px-3.5 whitespace-nowrap text-right">
+                        <button
+                          onClick={() => setActiveProvenance({
+                            source: rel.source_id || personId,
+                            target: rel.target_id || rel.connected_entity_id,
+                            caseId: rel.case_id
+                          })}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold transition-colors"
+                          title="Inspect Evidence Provenance"
+                        >
+                          <FileText size={11} />
+                          <span>Inspect</span>
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -126,6 +145,17 @@ export default function PersonEvidenceRelationships({ relationships = [], person
             </table>
           </div>
         </div>
+      )}
+
+      {/* Evidence Provenance Modal */}
+      {activeProvenance && (
+        <EvidenceProvenanceModal
+          isOpen={Boolean(activeProvenance)}
+          onClose={() => setActiveProvenance(null)}
+          sourceId={activeProvenance.source}
+          targetId={activeProvenance.target}
+          caseId={activeProvenance.caseId}
+        />
       )}
     </div>
   );

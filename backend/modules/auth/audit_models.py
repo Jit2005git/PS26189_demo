@@ -46,6 +46,9 @@ class AuditEventType(str, Enum):
     # Citizen Portal events
     CITIZEN_CASE_VIEW = "CITIZEN_CASE_VIEW"
 
+    # Provenance events (Phase 8)
+    PROVENANCE_EDGE_VIEW = "PROVENANCE_EDGE_VIEW"
+
     # Security & Access Control events
     UNAUTHORIZED_ACCESS_DENIED = "UNAUTHORIZED_ACCESS_DENIED"
 

@@ -11,6 +11,7 @@ from .assistant import router as assistant_router
 from .auth import router as auth_router
 from .citizen import router as citizen_router
 from .audit import router as audit_router
+from .provenance import router as provenance_router
 
 router = APIRouter()
 router.include_router(health_router, tags=["Health"])
@@ -25,5 +26,4 @@ router.include_router(analytics_router, tags=["Analytics"])
 router.include_router(priority_router, tags=["Priority"])
 router.include_router(search_router, tags=["Search"])
 router.include_router(assistant_router, tags=["Assistant"])
-
-
+router.include_router(provenance_router, tags=["Provenance"])
