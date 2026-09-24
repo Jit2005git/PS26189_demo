@@ -1,8 +1,23 @@
 # PS26189 — AI-Powered Criminal Network Analysis System
 
-> **Smart India Hackathon 2026 · Problem Statement 26189**
+> Smart India Hackathon 2026 · Problem Statement 26189
 
-An AI-assisted investigation intelligence platform designed to help authorized investigators analyze fragmented investigation data, discover cross-case connections, understand potential relationships, identify analytical leads, and trace the evidence behind those findings.
+**AI-assisted investigation intelligence using NLP, Entity Resolution,
+Knowledge Graphs, Graph Analytics, Explainable ML and Grounded AI.**
+
+### 🚀 Live Prototype
+
+**[🌐 Launch Prototype](https://ps26189-frontend.onrender.com)**
+
+**[📚 API Documentation](https://ps26189-backend-v2.onrender.com/docs)**
+
+**[💻 GitHub Repository](https://github.com/Jit2005git/PS26189_demo)**
+
+> 🧪 **Synthetic Demonstration Data**  
+> Analytical leads require human verification.
+
+---
+
 
 ---
 
